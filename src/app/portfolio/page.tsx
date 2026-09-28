@@ -82,7 +82,7 @@ function PortfolioView() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Portfolio</h1>
-          <p className="text-text-2">Track your positions. Astor uses them when it gives you advice.</p>
+          <p className="text-text-2">Track your positions. Installous uses them when it gives you advice.</p>
         </div>
         {has && (
           <Link

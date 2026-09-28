@@ -69,7 +69,7 @@ export default function PicksPage() {
       <div>
         <h1 className="text-2xl font-semibold">Top Picks</h1>
         <p className="text-text-2">
-          Large-cap US stocks plus your watchlist, ranked by Astor&apos;s five-factor score. Click a column to re-rank.
+          Large-cap US stocks plus your watchlist, ranked by Installous&apos;s five-factor score. Click a column to re-rank.
         </p>
       </div>
 

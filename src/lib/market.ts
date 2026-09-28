@@ -170,33 +170,99 @@ export async function getQuotes(rawTickers: string[]): Promise<Record<string, Qu
   });
 }
 
-export type HistoryRange = "1mo" | "3mo" | "6mo" | "1y" | "2y" | "5y";
+export type HistoryRange = "1d" | "1w" | "1mo" | "3mo" | "ytd" | "1y" | "5y";
 
-export const HISTORY_RANGES: HistoryRange[] = ["1mo", "3mo", "6mo", "1y", "2y", "5y"];
+export const HISTORY_RANGES: HistoryRange[] = ["1d", "1w", "1mo", "3mo", "ytd", "1y", "5y"];
 
-const RANGE_DAYS: Record<HistoryRange, number> = {
-  "1mo": 31,
-  "3mo": 92,
-  "6mo": 183,
-  "1y": 366,
-  "2y": 731,
-  "5y": 1827,
+type Interval = "5m" | "15m" | "1h" | "1d" | "1wk";
+
+const RANGE_CONFIG: Record<Exclude<HistoryRange, "1d" | "ytd">, { days: number; interval: Interval }> = {
+  "1w": { days: 7, interval: "15m" },
+  "1mo": { days: 31, interval: "1h" },
+  "3mo": { days: 92, interval: "1d" },
+  "1y": { days: 366, interval: "1d" },
+  "5y": { days: 1827, interval: "1wk" },
 };
 
 export interface PricePoint {
-  date: string;
+  t: number; // epoch ms
   close: number;
 }
 
-export async function getHistory(rawTicker: string, range: HistoryRange): Promise<PricePoint[]> {
+export interface PriceHistory {
+  ticker: string;
+  range: HistoryRange;
+  intraday: boolean;
+  points: PricePoint[];
+  /** Reference price for the change calculation: previous close for 1D, first point otherwise. */
+  baseline: number;
+  /** 1D only: regular-session open/close, so the chart can leave room for the rest of the day. */
+  sessionStart?: number;
+  sessionEnd?: number;
+}
+
+function toPoints(quotes: { date: Date; close?: number | null }[]): PricePoint[] {
+  return quotes
+    .filter((q) => typeof q.close === "number")
+    .map((q) => ({ t: q.date.getTime(), close: q.close as number }));
+}
+
+async function getIntraday(ticker: string): Promise<PriceHistory> {
+  // Fetch several days so we always have the latest session plus the close before it,
+  // even on Mondays and after holidays.
+  const chart = await yf.chart(ticker, {
+    period1: new Date(Date.now() - 7 * 86_400_000),
+    interval: "5m",
+    includePrePost: false,
+  });
+  const offsetMs = (chart.meta.gmtoffset ?? 0) * 1000;
+  const exchangeDay = (t: number) => Math.floor((t + offsetMs) / 86_400_000);
+  const all = toPoints(chart.quotes);
+  if (all.length === 0) throw new Error(`No intraday data for ${ticker}`);
+
+  const lastDay = exchangeDay(all[all.length - 1].t);
+  const points = all.filter((p) => exchangeDay(p.t) === lastDay);
+  const before = all.filter((p) => exchangeDay(p.t) < lastDay);
+  // Prefer the exchange's official previous close; the last 5-minute bar can differ slightly.
+  const baseline =
+    chart.meta.previousClose ?? (before.length ? before[before.length - 1].close : points[0].close);
+
+  // US regular session 9:30-16:00 in exchange-local time.
+  const dayStart = lastDay * 86_400_000 - offsetMs;
+  return {
+    ticker,
+    range: "1d",
+    intraday: true,
+    points,
+    baseline,
+    sessionStart: dayStart + 9.5 * 3_600_000,
+    sessionEnd: dayStart + 16 * 3_600_000,
+  };
+}
+
+export async function getHistory(rawTicker: string, range: HistoryRange): Promise<PriceHistory> {
   const ticker = normalizeTicker(rawTicker);
-  return cached(`hist:${ticker}:${range}`, 15 * MINUTE, async () => {
-    const period1 = new Date(Date.now() - RANGE_DAYS[range] * 86_400_000);
-    const interval = range === "5y" ? "1wk" : "1d";
-    const chart = await yf.chart(ticker, { period1, interval });
-    return chart.quotes
-      .filter((p) => typeof p.close === "number")
-      .map((p) => ({ date: p.date.toISOString().slice(0, 10), close: p.close as number }));
+  const ttl = range === "1d" || range === "1w" ? 1 * MINUTE : 15 * MINUTE;
+  return cached(`hist:${ticker}:${range}`, ttl, async () => {
+    if (range === "1d") return getIntraday(ticker);
+    const { days, interval } =
+      range === "ytd"
+        ? { days: 0, interval: "1d" as Interval }
+        : RANGE_CONFIG[range];
+    const period1 =
+      range === "ytd"
+        ? new Date(Date.UTC(new Date().getUTCFullYear(), 0, 1))
+        : new Date(Date.now() - days * 86_400_000);
+    const chart = await yf.chart(ticker, { period1, interval, includePrePost: false });
+    const points = toPoints(chart.quotes);
+    if (points.length === 0) throw new Error(`No price history for ${ticker}`);
+    return {
+      ticker,
+      range,
+      intraday: interval !== "1d" && interval !== "1wk",
+      points,
+      baseline: points[0].close,
+    };
   });
 }
 
