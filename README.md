@@ -1,18 +1,18 @@
-# Astor: a personal AI investor
+# Installous: a personal AI investor
 
 A private web app for researching stocks and picking investments. It combines live market data, a five-factor stock
 scoring model, and a Claude-powered AI analyst that knows your portfolio and investor profile.
 
 ## Features
 
-- **Dashboard**: portfolio value, today's change, total gain/loss, your watchlist, and the day's top-ranked stocks.
-- **Top Picks**: ranks ~40 large-cap US stocks plus your watchlist by the Astor score. Sort by any factor and filter by sector.
-- **Stock pages**: interactive price chart (1M–5Y), factor score breakdown, key metrics, news, and a one-click AI investment thesis.
+- **Dashboard**: portfolio value, today's change, total gain/loss, your watchlist with 1D sparklines, and the day's top-ranked stocks.
+- **Top Picks**: ranks ~40 large-cap US stocks plus your watchlist by the Installous score. Sort by any factor and filter by sector.
+- **Stock pages**: a Robinhood-style chart with a live 1D intraday view (dotted previous-close line, green or red for up or down, and a price that follows your cursor as you scrub) plus 1W, 1M, 3M, YTD, 1Y and 5Y, factor score breakdown, key metrics, news, and a one-click AI investment thesis.
 - **AI Advisor**: chat with an analyst that calls live tools (quotes, fundamentals, price history, news, your portfolio, the screener, and web search) and gives clear buy / hold / avoid views tailored to your profile.
 - **Portfolio**: track positions with average cost, live value, gain/loss, and weight.
 - **Profile**: set your risk tolerance, time horizon, and goals. The advisor uses them in every answer.
 
-## The Astor score
+## The Installous score
 
 Each stock gets 0–100 on five factors, blended into an overall score:
 
@@ -58,5 +58,5 @@ src/app/*             Pages: dashboard, picks, stock/[ticker], advisor, portfoli
 
 ## Disclaimer
 
-Astor is a personal research tool, not a licensed financial adviser. Scores and AI output can be wrong. Market data
+Installous is a personal research tool, not a licensed financial adviser. Scores and AI output can be wrong. Market data
 may be delayed. You make your own investment decisions.

@@ -4,7 +4,7 @@ import path from "path";
 import { normalizeTicker } from "./market";
 
 // Single-user app: everything persists to one JSON file on disk.
-const DATA_DIR = process.env.ASTOR_DATA_DIR ?? path.join(process.cwd(), "data");
+const DATA_DIR = process.env.INSTALLOUS_DATA_DIR ?? path.join(process.cwd(), "data");
 const STORE_FILE = path.join(DATA_DIR, "store.json");
 
 export interface Holding {

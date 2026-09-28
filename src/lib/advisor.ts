@@ -6,7 +6,7 @@ import { scoreMany, scoreTicker } from "./picks";
 import { addToWatchlist, readStore, type InvestorProfile } from "./store";
 import { DEFAULT_UNIVERSE } from "./universe";
 
-export const ADVISOR_MODEL = process.env.ASTOR_MODEL ?? "claude-opus-5";
+export const ADVISOR_MODEL = process.env.INSTALLOUS_MODEL ?? "claude-opus-5";
 
 export type AdvisorEvent =
   | { type: "text"; text: string }
@@ -19,7 +19,7 @@ export interface ChatTurn {
   content: string;
 }
 
-const SYSTEM_PROMPT = `You are Astor, a personal AI investment analyst working for one individual investor. You help them research stocks, understand their portfolio, and decide what to buy, hold, or sell.
+const SYSTEM_PROMPT = `You are Installous, a personal AI investment analyst working for one individual investor. You help them research stocks, understand their portfolio, and decide what to buy, hold, or sell.
 
 How you work:
 - Ground every claim about a company in data from your tools. Fetch fresh data rather than relying on memory for prices, valuations, or recent events. Use web search for recent news, earnings, and macro context your market-data tools don't cover.
@@ -148,13 +148,16 @@ async function runTool(name: ToolName, input: Record<string, unknown>): Promise<
     }
     case "get_price_history": {
       const { ticker, range } = toolInputs.get_price_history.parse(input);
-      const points = await getHistory(ticker, range as (typeof HISTORY_RANGES)[number]);
+      const history = await getHistory(ticker, range as (typeof HISTORY_RANGES)[number]);
+      const points = history.points;
       if (points.length < 2) return { ticker, range, error: "Not enough price history" };
       const closes = points.map((p) => p.close);
       const returns = closes.slice(1).map((c, i) => c / closes[i] - 1);
       const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
       const variance = returns.reduce((a, b) => a + (b - mean) ** 2, 0) / returns.length;
-      const periodsPerYear = range === "5y" ? 52 : 252;
+      // Annualize by the observed sampling frequency.
+      const spanYears = (points[points.length - 1].t - points[0].t) / (365.25 * 86_400_000);
+      const periodsPerYear = spanYears > 0 ? returns.length / spanYears : 252;
       let peak = closes[0];
       let maxDrawdown = 0;
       for (const c of closes) {
@@ -162,18 +165,24 @@ async function runTool(name: ToolName, input: Record<string, unknown>): Promise<
         maxDrawdown = Math.min(maxDrawdown, c / peak - 1);
       }
       const step = Math.max(1, Math.floor(points.length / 12));
-      const sampled = points.filter((_, i) => i % step === 0 || i === points.length - 1);
+      const fmt = (p: { t: number; close: number }) => ({
+        time: new Date(p.t).toISOString().slice(0, history.intraday ? 16 : 10),
+        close: round(p.close),
+      });
+      const last = closes[closes.length - 1];
       return {
         ticker,
         range,
-        start: points[0],
-        end: points[points.length - 1],
-        totalReturnPct: round((closes[closes.length - 1] / closes[0] - 1) * 100),
-        annualizedVolatilityPct: round(Math.sqrt(variance * periodsPerYear) * 100),
+        start: fmt(points[0]),
+        end: fmt(points[points.length - 1]),
+        changeFromBaselinePct: round((last / history.baseline - 1) * 100),
+        baseline: round(history.baseline),
+        baselineMeaning: range === "1d" ? "previous close" : "first price in range",
+        annualizedVolatilityPct: history.intraday ? null : round(Math.sqrt(variance * periodsPerYear) * 100),
         maxDrawdownPct: round(maxDrawdown * 100),
         high: round(Math.max(...closes)),
         low: round(Math.min(...closes)),
-        sampled: sampled.map((p) => ({ date: p.date, close: round(p.close) })),
+        sampled: points.filter((_, i) => i % step === 0 || i === points.length - 1).map(fmt),
       };
     }
     case "search_ticker": {

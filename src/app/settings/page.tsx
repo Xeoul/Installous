@@ -30,7 +30,7 @@ export default function SettingsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(profile),
     });
-    setStatus(r.ok ? "Saved. Astor will use this in its next answer." : "Couldn't save your profile.");
+    setStatus(r.ok ? "Saved. Installous will use this in its next answer." : "Couldn't save your profile.");
   }
 
   if (!profile) return <div className="h-64 animate-pulse rounded-2xl bg-surface-2" />;
@@ -39,7 +39,7 @@ export default function SettingsPage() {
     <div className="max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Investor profile</h1>
-        <p className="text-text-2">Astor tailors its picks, position sizing, and risk commentary to this profile.</p>
+        <p className="text-text-2">Installous tailors its picks, position sizing, and risk commentary to this profile.</p>
       </div>
       <Card>
         <form onSubmit={save} className="space-y-5">

@@ -3,10 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/Card";
-import { Change } from "@/components/Change";
 import { Chat } from "@/components/Chat";
 import { FactorBars } from "@/components/FactorBars";
-import { PriceChart } from "@/components/PriceChart";
+import { StockChart } from "@/components/StockChart";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { compact, fixed, money, ratioPct } from "@/lib/format";
 import type { Fundamentals } from "@/lib/market";
@@ -90,40 +89,36 @@ export function StockView({ ticker }: { ticker: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex items-baseline gap-3">
-            <h1 className="text-2xl font-semibold">{ticker}</h1>
-            <span className="truncate text-text-2">{f?.name ?? "…"}</span>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <section className="lg:col-span-2">
+          <div className="mb-1 flex flex-wrap items-baseline gap-x-3">
+            <h1 className="text-2xl font-semibold">{f?.name ?? ticker}</h1>
+            <span className="text-sm font-medium text-text-2">{ticker}</span>
           </div>
-          <div className="mt-1 text-xs text-muted">
-            {[f?.exchange, f?.sector, f?.industry].filter(Boolean).join(" · ")}
-          </div>
-          <div className="mt-3 flex items-baseline gap-3">
-            <span className="num text-3xl font-semibold">{f ? money(f.price, f.currency) : "…"}</span>
-            {f && <Change value={f.changePercent} className="text-base" />}
-          </div>
-        </div>
-        <div className="flex flex-col items-start gap-3 sm:items-end">
-          {s && <ScoreBadge score={s.overall} rating={s.rating} size="lg" />}
+          <div className="mb-4 text-xs text-muted">{[f?.exchange, f?.sector, f?.industry].filter(Boolean).join(" · ")}</div>
+          <StockChart ticker={ticker} currency={f?.currency} />
+        </section>
+
+        <aside className="space-y-4">
           <div className="flex gap-2">
-            <button onClick={toggleWatch} disabled={watching === null} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:border-accent">
-              {watching ? "★ Watching" : "☆ Watch"}
+            <button
+              onClick={toggleWatch}
+              disabled={watching === null}
+              className="flex-1 rounded-full border border-border px-3 py-2 text-sm font-medium hover:border-accent"
+            >
+              {watching ? "★ Watching" : "☆ Add to watchlist"}
             </button>
-            <Link href={`/portfolio?add=${ticker}`} className="rounded-lg border border-border px-3 py-1.5 text-sm hover:border-accent">
+            <Link
+              href={`/portfolio?add=${ticker}`}
+              className="flex-1 rounded-full bg-accent px-3 py-2 text-center text-sm font-medium text-white"
+            >
               + Add position
             </Link>
           </div>
-        </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card title="Price" className="lg:col-span-2">
-          <PriceChart ticker={ticker} currency={f?.currency} />
-        </Card>
-        <Card title="Astor score">
-          {s ? <FactorBars factors={s.factors} /> : <div className="h-64 animate-pulse rounded-lg bg-surface-2" />}
-        </Card>
+          <Card title="Installous Score" action={s && <ScoreBadge score={s.overall} rating={s.rating} />}>
+            {s ? <FactorBars factors={s.factors} /> : <div className="h-64 animate-pulse rounded-lg bg-surface-2" />}
+          </Card>
+        </aside>
       </div>
 
       <Card
@@ -145,7 +140,7 @@ export function StockView({ ticker }: { ticker: string }) {
           </div>
         ) : (
           <p className="text-sm text-text-2">
-            Get a written investment thesis with a clear verdict. Astor checks fundamentals, price action, recent news,
+            Get a written investment thesis with a clear verdict. Installous checks fundamentals, price action, recent news,
             and how {ticker} fits your portfolio.
           </p>
         )}

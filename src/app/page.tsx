@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { Card, Stat } from "@/components/Card";
 import { Change } from "@/components/Change";
 import { ScoreBadge } from "@/components/ScoreBadge";
+import { Sparkline } from "@/components/Sparkline";
+import type { ChartData } from "@/lib/chart";
 import { money } from "@/lib/format";
 import type { Rating } from "@/lib/scoring";
 
@@ -41,11 +43,18 @@ export default function Dashboard() {
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [watchlist, setWatchlist] = useState<Quote[] | null>(null);
   const [picks, setPicks] = useState<Pick[] | null>(null);
+  const [sparks, setSparks] = useState<Record<string, ChartData>>({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     getJson<Portfolio>("/api/portfolio").then(setPortfolio).catch((e) => setError(e.message));
-    getJson<Quote[]>("/api/watchlist").then(setWatchlist).catch((e) => setError(e.message));
+    getJson<Quote[]>("/api/watchlist")
+      .then((w) => {
+        setWatchlist(w);
+        if (w.length === 0) return;
+        return getJson<Record<string, ChartData>>(`/api/sparklines?tickers=${w.map((q) => q.ticker).join(",")}`).then(setSparks);
+      })
+      .catch((e) => setError(e.message));
     getJson<Pick[]>("/api/picks").then(setPicks).catch((e) => setError(e.message));
   }, []);
 
@@ -88,7 +97,7 @@ export default function Dashboard() {
       </div>
       {portfolio && portfolio.holdings.length === 0 && (
         <p className="text-sm text-text-2">
-          No holdings yet. <Link href="/portfolio" className="text-accent underline">Add your positions</Link> so Astor can
+          No holdings yet. <Link href="/portfolio" className="text-accent underline">Add your positions</Link> so Installous can
           tailor its advice.
         </p>
       )}
@@ -132,12 +141,13 @@ export default function Dashboard() {
             <ul className="divide-y divide-border">
               {watchlist.map((q) => (
                 <li key={q.ticker}>
-                  <Link href={`/stock/${q.ticker}`} className="flex items-center justify-between gap-3 py-2.5">
-                    <div className="min-w-0">
+                  <Link href={`/stock/${q.ticker}`} className="flex items-center gap-3 py-2.5">
+                    <div className="min-w-0 flex-1">
                       <div className="font-medium">{q.ticker}</div>
                       <div className="truncate text-xs text-text-2">{q.name}</div>
                     </div>
-                    <div className="text-right">
+                    <Sparkline data={sparks[q.ticker]} />
+                    <div className="w-20 text-right">
                       <div className="num text-sm">{money(q.price)}</div>
                       <Change value={q.changePercent} className="text-xs" />
                     </div>

@@ -11,7 +11,7 @@ interface Msg {
   error?: string;
 }
 
-const STORAGE_KEY = "astor.chat.v1";
+const STORAGE_KEY = "installous.chat.v1";
 
 const SUGGESTIONS = [
   "What are the 3 best stocks to buy right now for my profile?",
@@ -136,7 +136,7 @@ export function Chat({ initialPrompt, compact = false }: { initialPrompt?: strin
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pb-4">
         {messages.length === 0 && !compact && (
           <div className="py-8">
-            <h1 className="text-2xl font-semibold">Ask Astor</h1>
+            <h1 className="text-2xl font-semibold">Ask Installous</h1>
             <p className="mt-1 text-text-2">
               Your AI analyst pulls live prices, fundamentals, factor scores, news, and your portfolio to help you pick
               stocks.
@@ -171,7 +171,7 @@ export function Chat({ initialPrompt, compact = false }: { initialPrompt?: strin
                 </div>
               )}
               {m.content ? (
-                <div className="prose-astor text-sm">
+                <div className="prose-installous text-sm">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
                 </div>
               ) : (

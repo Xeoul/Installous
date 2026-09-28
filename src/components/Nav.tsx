@@ -18,8 +18,8 @@ export function Nav() {
     <header className="sticky top-0 z-20 border-b border-border bg-bg/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
         <Link href="/" className="flex items-center gap-2 text-lg font-semibold">
-          <span className="grid h-7 w-7 place-items-center rounded-lg bg-accent text-sm text-white">A</span>
-          Astor
+          <span className="grid h-7 w-7 place-items-center rounded-lg bg-accent text-sm text-white">I</span>
+          Installous
         </Link>
         <nav className="order-3 flex w-full gap-1 overflow-x-auto sm:order-none sm:w-auto">
           {LINKS.map((l) => {

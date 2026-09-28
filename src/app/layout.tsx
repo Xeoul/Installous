@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Astor — Personal AI Investor",
+  title: "Installous — Personal AI Investor",
   description: "Research stocks, rank ideas, and get AI-powered investment analysis.",
 };
 
