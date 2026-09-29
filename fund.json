@@ -80,8 +80,8 @@
   "history": [
     {
       "date": "2026-09-29",
-      "equity": 99950.02,
-      "benchmark": 100000
+      "equity": 99961.68,
+      "benchmark": 100011.78
     }
   ],
   "trades": [
@@ -186,5 +186,5 @@
       "reason": "New pick: #10 with score 74 (Strong Buy); strongest on growth 100, sentiment 100"
     }
   ],
-  "updatedAt": "2026-09-29T19:47:00.520Z"
+  "updatedAt": "2026-09-29T22:31:21.246Z"
 }
