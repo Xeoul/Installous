@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { forgetApiKey, loadApiKey, saveApiKey, streamFromServer, streamInBrowser } from "@/lib/advisor-client";
+import type { AdvisorEvent } from "@/lib/advisor-core";
+import { DEMO } from "@/lib/client-data";
 
 interface Msg {
   role: "user" | "assistant";
@@ -37,11 +40,18 @@ export function Chat({ initialPrompt, compact = false }: { initialPrompt?: strin
   const bottomRef = useRef<HTMLDivElement>(null);
   const sentInitial = useRef(false);
   const loaded = useRef(false);
+  const [apiKey, setApiKey] = useState<string | null>(null);
+  const [keyChecked, setKeyChecked] = useState(!DEMO);
 
-  // Restore the saved conversation (full-page advisor only).
+  // Restore the saved conversation (full-page advisor only) and, in the demo,
+  // the visitor's API key.
   useEffect(() => {
     if (!compact) {
       setMessages(loadHistory());
+    }
+    if (DEMO) {
+      setApiKey(loadApiKey());
+      setKeyChecked(true);
     }
     loaded.current = true;
   }, [compact]);
@@ -73,44 +83,28 @@ export function Chat({ initialPrompt, compact = false }: { initialPrompt?: strin
       const update = (fn: (m: Msg) => Msg) =>
         setMessages((ms) => [...ms.slice(0, -1), fn(ms[ms.length - 1])]);
 
-      try {
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          // Only send turns that have text; failed/empty replies are dropped.
-          body: JSON.stringify({
-            messages: history.filter((m) => m.content.trim()).map(({ role, content }) => ({ role, content })),
-          }),
-          signal: ctrl.signal,
-        });
-        if (!res.ok || !res.body) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.error ?? `Request failed (${res.status})`);
+      let afterTool = false;
+      const onEvent = (event: AdvisorEvent) => {
+        if (event.type === "text") {
+          const sep = afterTool ? "\n\n" : "";
+          afterTool = false;
+          update((m) => ({ ...m, content: m.content + (m.content && sep ? sep : "") + event.text }));
+        } else if (event.type === "tool") {
+          afterTool = true;
+          update((m) => ({ ...m, steps: [...(m.steps ?? []), event.label] }));
+        } else if (event.type === "error") {
+          update((m) => ({ ...m, error: event.message }));
         }
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let afterTool = false;
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const frames = buffer.split("\n\n");
-          buffer = frames.pop() ?? "";
-          for (const frame of frames) {
-            if (!frame.startsWith("data: ")) continue;
-            const event = JSON.parse(frame.slice(6));
-            if (event.type === "text") {
-              const sep = afterTool ? "\n\n" : "";
-              afterTool = false;
-              update((m) => ({ ...m, content: m.content + (m.content && sep ? sep : "") + event.text }));
-            } else if (event.type === "tool") {
-              afterTool = true;
-              update((m) => ({ ...m, steps: [...(m.steps ?? []), event.label] }));
-            } else if (event.type === "error") {
-              update((m) => ({ ...m, error: event.message }));
-            }
-          }
+      };
+      // Only send turns that have text; failed/empty replies are dropped.
+      const turns = history.filter((m) => m.content.trim()).map(({ role, content }) => ({ role, content }));
+
+      try {
+        if (DEMO) {
+          if (!apiKey) throw new Error("Add your Anthropic API key to use the advisor.");
+          await streamInBrowser(turns, apiKey, onEvent, ctrl.signal);
+        } else {
+          await streamFromServer(turns, onEvent, ctrl.signal);
         }
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
@@ -121,20 +115,30 @@ export function Chat({ initialPrompt, compact = false }: { initialPrompt?: strin
         abortRef.current = null;
       }
     },
-    [],
+    [apiKey],
   );
 
+  const ready = !DEMO || !!apiKey;
+
   useEffect(() => {
-    if (initialPrompt && !sentInitial.current && loaded.current) {
+    if (initialPrompt && ready && !sentInitial.current && loaded.current) {
       sentInitial.current = true;
       void send(initialPrompt, compact ? [] : loadHistory());
     }
-  }, [initialPrompt, send, compact]);
+  }, [initialPrompt, send, compact, ready]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto pb-4">
-        {messages.length === 0 && !compact && (
+        {DEMO && keyChecked && !apiKey && (
+          <ApiKeyPanel
+            onSave={(k) => {
+              saveApiKey(k);
+              setApiKey(k);
+            }}
+          />
+        )}
+        {messages.length === 0 && !compact && ready && (
           <div className="py-8">
             <h1 className="text-2xl font-semibold">Ask Installous</h1>
             <p className="mt-1 text-text-2">
@@ -210,7 +214,7 @@ export function Chat({ initialPrompt, compact = false }: { initialPrompt?: strin
             Stop
           </button>
         ) : (
-          <button type="submit" disabled={!input.trim()} className="rounded-xl bg-accent px-4 text-sm font-medium text-white disabled:opacity-40">
+          <button type="submit" disabled={!input.trim() || !ready} className="rounded-xl bg-accent px-4 text-sm font-medium text-white disabled:opacity-40">
             Send
           </button>
         )}
@@ -220,6 +224,61 @@ export function Chat({ initialPrompt, compact = false }: { initialPrompt?: strin
           </button>
         )}
       </form>
+      {DEMO && apiKey && !compact && (
+        <p className="pt-2 text-xs text-muted">
+          Using your Anthropic API key, stored only in this browser.{" "}
+          <button
+            type="button"
+            onClick={() => {
+              forgetApiKey();
+              setApiKey(null);
+            }}
+            className="underline hover:text-text"
+          >
+            Remove key
+          </button>
+        </p>
+      )}
     </div>
+  );
+}
+
+function ApiKeyPanel({ onSave }: { onSave: (key: string) => void }) {
+  const [value, setValue] = useState("");
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (value.trim()) onSave(value.trim());
+      }}
+      className="rounded-2xl border border-border bg-surface p-5"
+    >
+      <h2 className="font-semibold">Try the AI advisor with your own API key</h2>
+      <p className="mt-1 text-sm text-text-2">
+        This is the public demo, so the advisor runs in your browser on your own Anthropic account. Your key is saved
+        only in this browser and sent only to <code>api.anthropic.com</code>. A typical answer costs roughly 10–50 cents in API usage.
+      </p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <input
+          type="password"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="sk-ant-…"
+          autoComplete="off"
+          aria-label="Anthropic API key"
+          className="input min-w-0 flex-1"
+        />
+        <button disabled={!value.trim()} className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-40">
+          Save key
+        </button>
+      </div>
+      <p className="mt-2 text-xs text-muted">
+        Don&apos;t have one?{" "}
+        <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer" className="underline">
+          Create a key in the Anthropic Console
+        </a>
+        . You can remove it any time.
+      </p>
+    </form>
   );
 }

@@ -5,27 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { Card, Stat } from "@/components/Card";
 import { Change } from "@/components/Change";
+import { addHolding, getPortfolio, removeHolding, stockHref } from "@/lib/client-data";
 import { money } from "@/lib/format";
-
-interface Row {
-  ticker: string;
-  name: string;
-  shares: number;
-  costBasis: number;
-  price: number | null;
-  dayChangePercent: number | null;
-  value: number | null;
-  gain: number | null;
-  gainPercent: number | null;
-  weightPercent: number | null;
-}
-interface Portfolio {
-  holdings: Row[];
-  totalValue: number;
-  totalCost: number;
-  totalGain: number;
-  totalGainPercent: number | null;
-}
+import type { PortfolioSnapshot as Portfolio } from "@/lib/portfolio";
 
 export default function PortfolioPage() {
   return (
@@ -43,8 +25,7 @@ function PortfolioView() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch("/api/portfolio")
-      .then((r) => r.json())
+    getPortfolio()
       .then(setData)
       .catch((e: Error) => setError(e.message));
   }, []);
@@ -53,26 +34,23 @@ function PortfolioView() {
     e.preventDefault();
     setSaving(true);
     setError(null);
-    const r = await fetch("/api/portfolio", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ticker: form.ticker, shares: Number(form.shares), price: Number(form.price) }),
-    });
-    const body = await r.json();
-    setSaving(false);
-    if (!r.ok) return setError(body.error);
-    setData(body);
-    setForm({ ticker: "", shares: "", price: "" });
+    try {
+      setData(await addHolding(form.ticker, Number(form.shares), Number(form.price)));
+      setForm({ ticker: "", shares: "", price: "" });
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function remove(ticker: string) {
     if (!confirm(`Remove ${ticker} from your portfolio?`)) return;
-    const r = await fetch("/api/portfolio", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ticker }),
-    });
-    if (r.ok) setData(await r.json());
+    try {
+      setData(await removeHolding(ticker));
+    } catch (err) {
+      setError((err as Error).message);
+    }
   }
 
   const has = data && data.holdings.length > 0;
@@ -138,7 +116,7 @@ function PortfolioView() {
               {data.holdings.map((h) => (
                 <tr key={h.ticker}>
                   <td className="px-4 py-3">
-                    <Link href={`/stock/${h.ticker}`} className="font-medium hover:text-accent">{h.ticker}</Link>
+                    <Link href={stockHref(h.ticker)} className="font-medium hover:text-accent">{h.ticker}</Link>
                     <div className="max-w-[180px] truncate text-xs text-text-2">{h.name}</div>
                   </td>
                   <td className="num px-4 py-3 text-right">{h.shares}</td>

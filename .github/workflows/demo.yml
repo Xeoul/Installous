@@ -1,0 +1,53 @@
+# Publishes the static demo to GitHub Pages (https://xeoul.github.io/Installous/)
+# with a fresh market-data snapshot. Runs on every push to main, every 30
+# minutes while US markets are open, and once a day for weekend news.
+name: Deploy demo
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "*/30 13-21 * * 1-5"
+    - cron: "7 12 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - id: pages
+        uses: actions/configure-pages@v5
+      - run: npm ci
+      - name: Snapshot market data
+        run: npm run demo:data
+      - name: Build static site
+        run: npm run build:demo
+        env:
+          NEXT_PUBLIC_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

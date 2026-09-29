@@ -1,11 +1,20 @@
+"use client";
+
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { Chat } from "@/components/Chat";
 
-export default async function AdvisorPage({ searchParams }: PageProps<"/advisor">) {
-  const { q } = await searchParams;
-  const prompt = typeof q === "string" ? q : undefined;
+export default function AdvisorPage() {
   return (
     <div className="h-[calc(100dvh-11rem)] min-h-[420px]">
-      <Chat initialPrompt={prompt} />
+      <Suspense>
+        <AdvisorChat />
+      </Suspense>
     </div>
   );
+}
+
+function AdvisorChat() {
+  const q = useSearchParams().get("q") ?? undefined;
+  return <Chat initialPrompt={q} />;
 }

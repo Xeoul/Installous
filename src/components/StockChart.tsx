@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CHART_RANGES, formatPointTime, nearestIndex, type ChartData, type ChartRange } from "@/lib/chart";
+import { DEMO, getHistory } from "@/lib/client-data";
 import { money } from "@/lib/format";
 
 const HEIGHT = 280;
@@ -25,9 +26,7 @@ export function StockChart({ ticker, currency = "USD" }: { ticker: string; curre
     let cancelled = false;
     const load = async () => {
       try {
-        const r = await fetch(`/api/history/${encodeURIComponent(ticker)}?range=${range}`);
-        const body = await r.json();
-        if (!r.ok) throw new Error(body.error ?? "Failed to load prices");
+        const body = await getHistory(ticker, range);
         if (!cancelled) {
           setData(body);
           setError(null);
@@ -37,7 +36,8 @@ export function StockChart({ ticker, currency = "USD" }: { ticker: string; curre
       }
     };
     void load();
-    const timer = range === "1d" ? setInterval(load, 60_000) : undefined;
+    // The demo snapshot only changes when it's republished, so there's nothing to poll.
+    const timer = range === "1d" && !DEMO ? setInterval(load, 60_000) : undefined;
     return () => {
       cancelled = true;
       clearInterval(timer);

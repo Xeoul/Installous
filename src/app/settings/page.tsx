@@ -2,12 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/Card";
-
-interface Profile {
-  risk: "conservative" | "moderate" | "aggressive";
-  horizon: string;
-  goals: string;
-}
+import { getProfile, saveProfile } from "@/lib/client-data";
+import type { InvestorProfile as Profile } from "@/lib/store";
 
 const RISKS: { value: Profile["risk"]; label: string; desc: string }[] = [
   { value: "conservative", label: "Conservative", desc: "Preserve capital; prefer stable, dividend-paying companies." },
@@ -20,17 +16,18 @@ export default function SettingsPage() {
   const [status, setStatus] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/profile").then((r) => r.json()).then(setProfile);
+    getProfile().then(setProfile);
   }, []);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    const r = await fetch("/api/profile", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(profile),
-    });
-    setStatus(r.ok ? "Saved. Installous will use this in its next answer." : "Couldn't save your profile.");
+    if (!profile) return;
+    try {
+      await saveProfile(profile);
+      setStatus("Saved. Installous will use this in its next answer.");
+    } catch {
+      setStatus("Couldn't save your profile.");
+    }
   }
 
   if (!profile) return <div className="h-64 animate-pulse rounded-2xl bg-surface-2" />;
