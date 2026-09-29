@@ -9,6 +9,8 @@ scoring model, and a Claude-powered AI analyst that knows your portfolio and inv
 - **Top Picks**: ranks ~40 large-cap US stocks plus your watchlist by the Installous score. Sort by any factor and filter by sector.
 - **Stock pages**: a Robinhood-style chart with a live 1D intraday view (dotted previous-close line, green or red for up or down, and a price that follows your cursor as you scrub) plus 1W, 1M, 3M, YTD, 1Y and 5Y, factor score breakdown, key metrics, news, and a one-click AI investment thesis.
 - **AI Advisor**: chat with an analyst that calls live tools (quotes, fundamentals, price history, news, your portfolio, the screener, and web search) and gives clear buy / hold / avoid views tailored to your profile.
+- **AI Fund**: a rules-only $100,000 paper portfolio that picks stocks from the Installous score by itself and is
+  measured against the S&P 500, with every trade and its reason logged.
 - **Portfolio**: track positions with average cost, live value, gain/loss, and weight.
 - **Profile**: set your risk tolerance, time horizon, and goals. The advisor uses them in every answer.
 
@@ -26,6 +28,20 @@ Each stock gets 0–100 on five factors, blended into an overall score:
 
 Ratings: ≥72 Strong Buy · ≥60 Buy · ≥45 Hold · ≥33 Weak · below that Avoid. Weights and thresholds live in
 `src/lib/scoring.ts` if you want to tune them.
+
+## The AI Fund
+
+A paper-money portfolio that runs on rules alone, with no human picks:
+
+1. Start with $100,000.
+2. Every 7 days, hold the top 10 stocks by Installous score at equal 10% weights.
+3. Keep a holding while it stays in the top 15 and scores at least 45 (Hold); otherwise sell it and buy the next best.
+4. Only trim or top up a position once it drifts more than 2 points from its target weight.
+5. Every fill pays a 0.05% simulated trading cost. Returns exclude dividends for both the fund and the S&P 500 (SPY).
+
+It runs in the demo's GitHub Actions workflow (`npm run fund`, logic in `src/lib/fund.ts`). Its state (cash, positions,
+trade log and daily value history) is saved to the `fund-data` branch. The Fund page reads the published copy, so the
+local app shows the same fund as the live demo. To restart the fund from $100,000, delete `fund.json` on that branch.
 
 ## Getting started
 

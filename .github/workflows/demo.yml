@@ -1,6 +1,7 @@
 # Publishes the static demo to GitHub Pages (https://xeoul.github.io/Installous/)
-# with a fresh market-data snapshot. Runs on every push to main, every 30
-# minutes while US markets are open, and once a day for weekend news.
+# with a fresh market-data snapshot, and advances the AI Fund, whose state is
+# saved on the fund-data branch. Runs on every push to main, every 30 minutes
+# while US markets are open, and once a day for weekend news.
 name: Deploy demo
 
 on:
@@ -12,7 +13,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write # push the AI Fund's state to the fund-data branch
   pages: write
   id-token: write
 
@@ -34,6 +35,21 @@ jobs:
       - run: npm ci
       - name: Snapshot market data
         run: npm run demo:data
+      - uses: actions/checkout@v5
+        with:
+          ref: fund-data
+          path: fund-state
+      - name: Run the AI Fund
+        run: npm run fund
+        env:
+          FUND_DIR: fund-state
+      - name: Save the AI Fund's state
+        working-directory: fund-state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add fund.json
+          git diff --cached --quiet || { git commit -q -m "Update AI Fund $(date -u +%Y-%m-%dT%H:%MZ)" && git push -q; }
       - name: Build static site
         run: npm run build:demo
         env:

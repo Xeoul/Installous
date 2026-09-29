@@ -7,8 +7,9 @@ import { Change } from "@/components/Change";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { Sparkline } from "@/components/Sparkline";
 import type { ChartData } from "@/lib/chart";
-import { getPicks, getPortfolio, getSparklines, getWatchlist, stockHref } from "@/lib/client-data";
+import { getFund, getPicks, getPortfolio, getSparklines, getWatchlist, stockHref } from "@/lib/client-data";
 import { money } from "@/lib/format";
+import type { FundView } from "@/lib/fund";
 import type { Quote } from "@/lib/market";
 import type { Pick, PortfolioSnapshot } from "@/lib/portfolio";
 
@@ -17,6 +18,7 @@ export default function Dashboard() {
   const [watchlist, setWatchlist] = useState<Quote[] | null>(null);
   const [picks, setPicks] = useState<Pick[] | null>(null);
   const [sparks, setSparks] = useState<Record<string, ChartData>>({});
+  const [fund, setFund] = useState<FundView | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -28,6 +30,8 @@ export default function Dashboard() {
       })
       .catch((e) => setError(e.message));
     getPicks().then(setPicks).catch((e) => setError(e.message));
+    // The fund is optional on the dashboard; skip the card if it can't load.
+    getFund().then(setFund).catch(() => {});
   }, []);
 
   // Today's portfolio change, weighted by position value.
@@ -72,6 +76,21 @@ export default function Dashboard() {
           No holdings yet. <Link href="/portfolio" className="text-accent underline">Add your positions</Link> so Installous can
           tailor its advice.
         </p>
+      )}
+
+      {fund && (
+        <Link
+          href="/fund"
+          className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl border border-border bg-surface px-5 py-3 text-sm hover:border-accent"
+        >
+          <span className="font-semibold">AI Fund</span>
+          <span className="text-text-2">
+            Rules-only paper portfolio: <Change value={fund.returnPercent} /> vs S&amp;P 500{" "}
+            <Change value={fund.benchmarkReturnPercent} /> since{" "}
+            {new Date(`${fund.startDate}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
+          </span>
+          <span className="ml-auto text-accent">See holdings &amp; trades →</span>
+        </Link>
       )}
 
       <div className="grid gap-6 lg:grid-cols-5">
