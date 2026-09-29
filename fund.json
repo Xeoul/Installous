@@ -1,0 +1,190 @@
+{
+  "version": 1,
+  "startDate": "2026-09-29",
+  "startCash": 100000,
+  "benchmarkStartPrice": 764.11,
+  "cash": 0,
+  "positions": [
+    {
+      "ticker": "MU",
+      "name": "Micron Technology, Inc.",
+      "shares": 9.386390796766449,
+      "costBasis": 1065.3722199,
+      "openedAt": "2026-09-29"
+    },
+    {
+      "ticker": "NVDA",
+      "name": "NVIDIA Corporation",
+      "shares": 43.87621816835217,
+      "costBasis": 227.9139,
+      "openedAt": "2026-09-29"
+    },
+    {
+      "ticker": "CVX",
+      "name": "Chevron Corporation",
+      "shares": 49.01192810646116,
+      "costBasis": 204.03196499999999,
+      "openedAt": "2026-09-29"
+    },
+    {
+      "ticker": "MSFT",
+      "name": "Microsoft Corporation",
+      "shares": 19.60227205622904,
+      "costBasis": 510.14494499999995,
+      "openedAt": "2026-09-29"
+    },
+    {
+      "ticker": "META",
+      "name": "Meta Platforms, Inc.",
+      "shares": 13.606047507147597,
+      "costBasis": 734.9673,
+      "openedAt": "2026-09-29"
+    },
+    {
+      "ticker": "CRM",
+      "name": "Salesforce, Inc.",
+      "shares": 44.31489280964165,
+      "costBasis": 225.6577725,
+      "openedAt": "2026-09-29"
+    },
+    {
+      "ticker": "TXN",
+      "name": "Texas Instruments Incorporated",
+      "shares": 35.47220250115565,
+      "costBasis": 281.91088499999995,
+      "openedAt": "2026-09-29"
+    },
+    {
+      "ticker": "XOM",
+      "name": "ExxonMobil Holdings Corporation",
+      "shares": 61.95569501782505,
+      "costBasis": 161.40566249999998,
+      "openedAt": "2026-09-29"
+    },
+    {
+      "ticker": "GOOGL",
+      "name": "Alphabet Inc.",
+      "shares": 29.270514243566417,
+      "costBasis": 341.640735,
+      "openedAt": "2026-09-29"
+    },
+    {
+      "ticker": "AVGO",
+      "name": "Broadcom Inc.",
+      "shares": 28.15335051194475,
+      "costBasis": 355.19750999999997,
+      "openedAt": "2026-09-29"
+    }
+  ],
+  "lastRebalance": "2026-09-29",
+  "history": [
+    {
+      "date": "2026-09-29",
+      "equity": 99950.02,
+      "benchmark": 100000
+    }
+  ],
+  "trades": [
+    {
+      "date": "2026-09-29",
+      "ticker": "MU",
+      "name": "Micron Technology, Inc.",
+      "side": "buy",
+      "shares": 9.3864,
+      "price": 1065.37,
+      "value": 10000,
+      "reason": "New pick: #1 with score 92 (Strong Buy); strongest on growth 100, sentiment 100"
+    },
+    {
+      "date": "2026-09-29",
+      "ticker": "NVDA",
+      "name": "NVIDIA Corporation",
+      "side": "buy",
+      "shares": 43.8762,
+      "price": 227.91,
+      "value": 10000,
+      "reason": "New pick: #2 with score 85 (Strong Buy); strongest on growth 100, sentiment 100"
+    },
+    {
+      "date": "2026-09-29",
+      "ticker": "CVX",
+      "name": "Chevron Corporation",
+      "side": "buy",
+      "shares": 49.0119,
+      "price": 204.03,
+      "value": 10000,
+      "reason": "New pick: #3 with score 81 (Strong Buy); strongest on growth 100, value 91"
+    },
+    {
+      "date": "2026-09-29",
+      "ticker": "MSFT",
+      "name": "Microsoft Corporation",
+      "side": "buy",
+      "shares": 19.6023,
+      "price": 510.14,
+      "value": 10000,
+      "reason": "New pick: #4 with score 76 (Strong Buy); strongest on quality 95, growth 83"
+    },
+    {
+      "date": "2026-09-29",
+      "ticker": "META",
+      "name": "Meta Platforms, Inc.",
+      "side": "buy",
+      "shares": 13.606,
+      "price": 734.97,
+      "value": 10000,
+      "reason": "New pick: #5 with score 76 (Strong Buy); strongest on quality 94, momentum 76"
+    },
+    {
+      "date": "2026-09-29",
+      "ticker": "CRM",
+      "name": "Salesforce, Inc.",
+      "side": "buy",
+      "shares": 44.3149,
+      "price": 225.66,
+      "value": 10000,
+      "reason": "New pick: #6 with score 76 (Strong Buy); strongest on sentiment 88, growth 82"
+    },
+    {
+      "date": "2026-09-29",
+      "ticker": "TXN",
+      "name": "Texas Instruments Incorporated",
+      "side": "buy",
+      "shares": 35.4722,
+      "price": 281.91,
+      "value": 10000,
+      "reason": "New pick: #7 with score 76 (Strong Buy); strongest on growth 93, quality 91"
+    },
+    {
+      "date": "2026-09-29",
+      "ticker": "XOM",
+      "name": "ExxonMobil Holdings Corporation",
+      "side": "buy",
+      "shares": 61.9557,
+      "price": 161.41,
+      "value": 10000,
+      "reason": "New pick: #8 with score 75 (Strong Buy); strongest on growth 100, value 84"
+    },
+    {
+      "date": "2026-09-29",
+      "ticker": "GOOGL",
+      "name": "Alphabet Inc.",
+      "side": "buy",
+      "shares": 29.2705,
+      "price": 341.64,
+      "value": 10000,
+      "reason": "New pick: #9 with score 74 (Strong Buy); strongest on quality 96, sentiment 95"
+    },
+    {
+      "date": "2026-09-29",
+      "ticker": "AVGO",
+      "name": "Broadcom Inc.",
+      "side": "buy",
+      "shares": 28.1534,
+      "price": 355.2,
+      "value": 10000,
+      "reason": "New pick: #10 with score 74 (Strong Buy); strongest on growth 100, sentiment 100"
+    }
+  ],
+  "updatedAt": "2026-09-29T19:47:00.520Z"
+}
