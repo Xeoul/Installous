@@ -45,15 +45,36 @@ Market data comes from Yahoo Finance and needs no API key. Everything except the
 Your watchlist, holdings, and profile are saved to `data/store.json`. That folder is git-ignored so your positions
 never get committed.
 
+## Live demo
+
+A static build of the app is published to GitHub Pages at **https://xeoul.github.io/Installous/**.
+
+- **Market data:** `.github/workflows/demo.yml` snapshots it for about 50 large-cap stocks every 30 minutes while US
+  markets are open, then rebuilds and redeploys the site.
+- **Portfolio, watchlist and profile:** saved in each visitor's browser.
+- **AI advisor:** runs in the browser with the visitor's own Anthropic API key, which never leaves their browser except
+  to go to `api.anthropic.com`.
+
+To build the demo locally:
+
+```bash
+npm run demo:data    # writes public/demo-data/
+npm run build:demo   # static export to out/, served under /Installous
+```
+
+One-time setup: in the repo's **Settings → Pages**, set **Source** to **GitHub Actions**.
+
 ## Project layout
 
 ```
-src/lib/market.ts     Yahoo Finance data access with caching
-src/lib/scoring.ts    Five-factor scoring model
-src/lib/advisor.ts    Claude advisor: system prompt, tools, streaming tool-use loop
-src/lib/store.ts      JSON-file persistence (watchlist, holdings, profile)
-src/app/api/*         Route handlers used by the UI
-src/app/*             Pages: dashboard, picks, stock/[ticker], advisor, portfolio, settings
+src/lib/market.ts        Yahoo Finance data access with caching
+src/lib/scoring.ts       Five-factor scoring model
+src/lib/advisor-core.ts  Claude advisor: system prompt, tools, streaming tool-use loop (server or browser)
+src/lib/client-data.ts   Data access for the UI: /api routes, or the static snapshot in the demo
+src/lib/store.ts         JSON-file persistence (watchlist, holdings, profile)
+src/app/api/*            Route handlers used by the full app
+src/app/*                Pages: dashboard, picks, stock, advisor, portfolio, settings
+scripts/                 Demo data snapshot and static build
 ```
 
 ## Disclaimer

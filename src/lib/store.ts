@@ -1,7 +1,9 @@
 import "server-only";
 import { promises as fs } from "fs";
 import path from "path";
+import { DEFAULT_PROFILE, DEFAULT_WATCHLIST } from "./defaults";
 import { normalizeTicker } from "./market";
+import { mergeHolding } from "./portfolio";
 
 // Single-user app: everything persists to one JSON file on disk.
 const DATA_DIR = process.env.INSTALLOUS_DATA_DIR ?? path.join(process.cwd(), "data");
@@ -28,13 +30,9 @@ export interface Store {
 }
 
 const DEFAULT_STORE: Store = {
-  watchlist: ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN"],
+  watchlist: DEFAULT_WATCHLIST,
   holdings: [],
-  profile: {
-    risk: "moderate",
-    horizon: "5+ years",
-    goals: "Long-term growth with a diversified portfolio.",
-  },
+  profile: DEFAULT_PROFILE,
 };
 
 let writeChain: Promise<unknown> = Promise.resolve();
@@ -82,14 +80,7 @@ export function removeFromWatchlist(ticker: string) {
 export function addHolding(ticker: string, shares: number, price: number) {
   const t = normalizeTicker(ticker);
   return updateStore((s) => {
-    const existing = s.holdings.find((h) => h.ticker === t);
-    if (existing) {
-      const totalShares = existing.shares + shares;
-      existing.costBasis = (existing.costBasis * existing.shares + price * shares) / totalShares;
-      existing.shares = totalShares;
-    } else {
-      s.holdings.push({ ticker: t, shares, costBasis: price });
-    }
+    s.holdings = mergeHolding(s.holdings, t, shares, price);
   });
 }
 

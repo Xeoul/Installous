@@ -4,21 +4,10 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Change } from "@/components/Change";
 import { ScoreBadge } from "@/components/ScoreBadge";
+import { getPicks, stockHref } from "@/lib/client-data";
 import { compact, money } from "@/lib/format";
-import type { FactorKey, Rating } from "@/lib/scoring";
-
-interface Pick {
-  ticker: string;
-  name: string;
-  sector: string | null;
-  price: number | null;
-  changePercent: number | null;
-  marketCap: number | null;
-  overall: number | null;
-  rating: Rating;
-  factors: Record<FactorKey, number | null>;
-  onWatchlist: boolean;
-}
+import type { Pick } from "@/lib/portfolio";
+import type { FactorKey } from "@/lib/scoring";
 
 type SortKey = "overall" | FactorKey | "marketCap" | "changePercent";
 
@@ -43,12 +32,8 @@ export default function PicksPage() {
   const [sector, setSector] = useState("All");
 
   useEffect(() => {
-    fetch("/api/picks")
-      .then(async (r) => {
-        const body = await r.json();
-        if (!r.ok) throw new Error(body.error ?? "Failed to load");
-        setPicks(body);
-      })
+    getPicks()
+      .then(setPicks)
       .catch((e: Error) => setError(e.message));
   }, []);
 
@@ -130,7 +115,7 @@ export default function PicksPage() {
               <tr key={p.ticker} className="hover:bg-surface-2/50">
                 <td className="num px-4 py-3 text-muted">{i + 1}</td>
                 <td className="px-4 py-3">
-                  <Link href={`/stock/${p.ticker}`} className="block">
+                  <Link href={stockHref(p.ticker)} className="block">
                     <span className="font-medium">{p.ticker}</span>
                     {p.onWatchlist && <span className="ml-1 text-xs text-muted" title="On your watchlist">★</span>}
                     <div className="max-w-[180px] truncate text-xs text-text-2">{p.name}</div>

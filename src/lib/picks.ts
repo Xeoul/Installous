@@ -1,6 +1,8 @@
 import "server-only";
 import { getFundamentals, type Fundamentals } from "./market";
+import { toPick, type Pick } from "./portfolio";
 import { scoreStock, type StockScore } from "./scoring";
+import { DEFAULT_UNIVERSE } from "./universe";
 
 export interface ScoredStock {
   fundamentals: Fundamentals;
@@ -28,4 +30,10 @@ export async function scoreMany(tickers: string[], concurrency = 6): Promise<Sco
   }
   await Promise.all(Array.from({ length: concurrency }, worker));
   return results.sort((a, b) => (b.score.overall ?? -1) - (a.score.overall ?? -1));
+}
+
+/** The Top Picks list: the default universe plus the watchlist, ranked. */
+export async function buildPicks(watchlist: string[]): Promise<Pick[]> {
+  const ranked = await scoreMany([...DEFAULT_UNIVERSE, ...watchlist]);
+  return ranked.map(({ fundamentals, score }) => toPick(fundamentals, score, watchlist));
 }

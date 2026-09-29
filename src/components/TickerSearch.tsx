@@ -2,12 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-
-interface Result {
-  ticker: string;
-  name: string;
-  exchange?: string;
-}
+import { searchTickers, stockHref } from "@/lib/client-data";
+import type { SearchResult as Result } from "@/lib/market";
 
 export function TickerSearch({ placeholder = "Search stocks…" }: { placeholder?: string }) {
   const router = useRouter();
@@ -22,9 +18,9 @@ export function TickerSearch({ placeholder = "Search stocks…" }: { placeholder
     const ctrl = new AbortController();
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal: ctrl.signal });
-        if (res.ok) {
-          setResults(await res.json());
+        const found = await searchTickers(q, ctrl.signal);
+        if (!ctrl.signal.aborted) {
+          setResults(found);
           setActive(0);
         }
       } catch {
@@ -49,7 +45,7 @@ export function TickerSearch({ placeholder = "Search stocks…" }: { placeholder
     setOpen(false);
     setQ("");
     setResults([]);
-    router.push(`/stock/${encodeURIComponent(ticker)}`);
+    router.push(stockHref(ticker));
   }
 
   const shown = q.trim() ? results : [];

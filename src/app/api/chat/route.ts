@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
-import { runAdvisor, type AdvisorEvent } from "@/lib/advisor";
+import { runAdvisor } from "@/lib/advisor";
+import type { AdvisorEvent } from "@/lib/advisor-core";
 import { errorResponse } from "../_util";
 
 const body = z.object({

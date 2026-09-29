@@ -7,50 +7,43 @@ import { Chat } from "@/components/Chat";
 import { FactorBars } from "@/components/FactorBars";
 import { StockChart } from "@/components/StockChart";
 import { ScoreBadge } from "@/components/ScoreBadge";
+import {
+  addToWatchlist,
+  getNews,
+  getStock,
+  getWatchlist,
+  removeFromWatchlist,
+  type StockData,
+} from "@/lib/client-data";
 import { compact, fixed, money, ratioPct } from "@/lib/format";
-import type { Fundamentals } from "@/lib/market";
-import type { StockScore } from "@/lib/scoring";
-
-interface News {
-  title: string;
-  publisher: string;
-  link: string;
-  published: string;
-}
+import type { NewsItem } from "@/lib/market";
 
 export function StockView({ ticker }: { ticker: string }) {
-  const [data, setData] = useState<{ fundamentals: Fundamentals; score: StockScore } | null>(null);
-  const [news, setNews] = useState<News[]>([]);
+  const [data, setData] = useState<StockData | null>(null);
+  const [news, setNews] = useState<NewsItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [watching, setWatching] = useState<boolean | null>(null);
   const [analyze, setAnalyze] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/stock/${encodeURIComponent(ticker)}`)
-      .then(async (r) => {
-        const body = await r.json();
-        if (!r.ok) throw new Error(body.error ?? "Failed to load");
-        setData(body);
-      })
+    getStock(ticker)
+      .then(setData)
       .catch((e: Error) => setError(e.message));
-    fetch(`/api/news/${encodeURIComponent(ticker)}`)
-      .then((r) => (r.ok ? r.json() : []))
+    getNews(ticker)
       .then(setNews)
       .catch(() => {});
-    fetch("/api/watchlist")
-      .then((r) => r.json())
-      .then((w: { ticker: string }[]) => setWatching(w.some((x) => x.ticker === ticker)))
+    getWatchlist()
+      .then((w) => setWatching(w.some((x) => x.ticker === ticker)))
       .catch(() => {});
   }, [ticker]);
 
   async function toggleWatch() {
-    const method = watching ? "DELETE" : "POST";
-    const r = await fetch("/api/watchlist", {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ticker }),
-    });
-    if (r.ok) setWatching(!watching);
+    try {
+      const list = watching ? await removeFromWatchlist(ticker) : await addToWatchlist(ticker);
+      setWatching(list.includes(ticker));
+    } catch {
+      // leave the button as it was
+    }
   }
 
   if (error) {

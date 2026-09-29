@@ -43,3 +43,7 @@ next-env.d.ts
 # local app data
 /data/
 !.env.example
+
+# static demo build
+/public/demo-data/
+/.demo-build-api/
