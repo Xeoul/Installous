@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "demo:data": "tsx --conditions=react-server scripts/demo-data.ts",
-    "build:demo": "node scripts/build-demo.mjs"
+    "build:demo": "node scripts/build-demo.mjs",
+    "fund": "tsx --conditions=react-server scripts/fund.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

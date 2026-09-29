@@ -5,6 +5,7 @@
 import type { AdvisorData } from "./advisor-core";
 import type { ChartData, ChartRange } from "./chart";
 import { DEFAULT_PROFILE, DEFAULT_WATCHLIST } from "./defaults";
+import type { FundView } from "./fund";
 import type { Fundamentals, NewsItem, Quote, SearchResult } from "./market";
 import { computePortfolio, mergeHolding, type Pick, type PortfolioSnapshot } from "./portfolio";
 import type { StockScore } from "./scoring";
@@ -106,6 +107,12 @@ async function demoSupports(ticker: string): Promise<boolean> {
 
 export function getDemoMeta(): Promise<DemoMeta> {
   return snapshot<DemoMeta>("meta.json");
+}
+
+/** The AI Fund's latest published state. */
+export function getFund(): Promise<FundView> {
+  if (DEMO) return snapshot("fund.json");
+  return json("/api/fund");
 }
 
 export function getStock(ticker: string): Promise<StockData> {

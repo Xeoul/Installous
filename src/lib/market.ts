@@ -148,6 +148,8 @@ export interface Quote {
   price: number | null;
   change: number | null;
   changePercent: number | null;
+  /** When the price was last updated (ISO), for knowing which market day it belongs to. */
+  marketTime?: string;
 }
 
 export async function getQuotes(rawTickers: string[]): Promise<Record<string, Quote>> {
@@ -164,6 +166,7 @@ export async function getQuotes(rawTickers: string[]): Promise<Record<string, Qu
         price: num(q.regularMarketPrice),
         change: num(q.regularMarketChange),
         changePercent: num(q.regularMarketChangePercent),
+        marketTime: q.regularMarketTime instanceof Date ? q.regularMarketTime.toISOString() : undefined,
       };
     }
     return out;
