@@ -95,8 +95,8 @@
     },
     {
       "date": "2026-10-02",
-      "equity": 101542.61,
-      "benchmark": 100672.68
+      "equity": 101570.17,
+      "benchmark": 100675.3
     }
   ],
   "trades": [
@@ -201,5 +201,5 @@
       "reason": "New pick: #10 with score 74 (Strong Buy); strongest on growth 100, sentiment 100"
     }
   ],
-  "updatedAt": "2026-10-02T17:50:25.249Z"
+  "updatedAt": "2026-10-02T18:14:28.410Z"
 }
