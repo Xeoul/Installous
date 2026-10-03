@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: write # push the AI Fund's state to the fund-data branch
+  issues: write # open alert issues
   pages: write
   id-token: write
 
@@ -45,12 +46,30 @@ jobs:
         run: npm run fund
         env:
           FUND_DIR: fund-state
+      - name: Check for alerts
+        run: npm run alerts
+        env:
+          FUND_DIR: fund-state
+          ALERT_DIR: ${{ runner.temp }}
+      # Alerts are GitHub issues assigned to the repo owner, so GitHub emails
+      # them. Earlier alert issues are closed so only the latest stays open.
+      - name: Send alert
+        continue-on-error: true # a failed alert shouldn't stop the site from deploying
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          [ -f "$RUNNER_TEMP/alert-title.txt" ] || exit 0
+          gh label create alerts --color 2a78d6 --description "Installous AI Fund alerts" 2>/dev/null || true
+          old=$(gh issue list --label alerts --state open --json number --jq '.[].number')
+          gh issue create --title "$(cat "$RUNNER_TEMP/alert-title.txt")" --body-file "$RUNNER_TEMP/alert-body.md" --label alerts --assignee "$OWNER"
+          for n in $old; do gh issue close "$n" --reason completed --comment "Superseded by a newer alert."; done
       - name: Save the AI Fund's state
         working-directory: fund-state
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
-          git add fund.json
+          git add fund.json alerts.json
           git diff --cached --quiet || { git commit -q -m "Update AI Fund $(date -u +%Y-%m-%dT%H:%MZ)" && git push -q; }
       - name: Build static site
         run: npm run build:demo

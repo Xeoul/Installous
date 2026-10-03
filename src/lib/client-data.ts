@@ -7,7 +7,7 @@ import type { ChartData, ChartRange } from "./chart";
 import { DEFAULT_PROFILE, DEFAULT_WATCHLIST } from "./defaults";
 import type { BacktestView } from "./backtest";
 import type { FundView } from "./fund";
-import type { Fundamentals, NewsItem, Quote, SearchResult } from "./market";
+import type { Fundamentals, NewsItem, Quote, SearchResult, StockEvents } from "./market";
 import { computePortfolio, mergeHolding, type Pick, type PortfolioSnapshot } from "./portfolio";
 import type { StockScore } from "./scoring";
 import type { Holding, InvestorProfile } from "./store";
@@ -134,6 +134,12 @@ export function getHistory(ticker: string, range: ChartRange): Promise<ChartData
   return json(`/api/history/${encodeURIComponent(t)}?range=${range}`);
 }
 
+export function getEvents(ticker: string): Promise<StockEvents> {
+  const t = normalize(ticker);
+  if (DEMO) return snapshot(`events/${t}.json`, notInDemo(t));
+  return json(`/api/events/${encodeURIComponent(t)}`);
+}
+
 export function getNews(ticker: string): Promise<NewsItem[]> {
   const t = normalize(ticker);
   if (DEMO) return snapshot<NewsItem[]>(`news/${t}.json`).catch(() => []);
@@ -233,5 +239,6 @@ export const demoAdvisorData: AdvisorData = {
   portfolio: getPortfolio,
   topPicks: getPicks,
   news: getNews,
+  events: getEvents,
   addToWatchlist,
 };

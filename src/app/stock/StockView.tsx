@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/Card";
 import { Chat } from "@/components/Chat";
+import { EventsCard } from "@/components/EventsCard";
 import { FactorBars } from "@/components/FactorBars";
 import { StockChart } from "@/components/StockChart";
 import { ScoreBadge } from "@/components/ScoreBadge";
@@ -82,7 +83,7 @@ export function StockView({ ticker }: { ticker: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <section className="lg:col-span-2">
           <div className="mb-1 flex flex-wrap items-baseline gap-x-3">
             <h1 className="text-2xl font-semibold">{f?.name ?? ticker}</h1>
@@ -108,6 +109,12 @@ export function StockView({ ticker }: { ticker: string }) {
               + Add position
             </Link>
           </div>
+          <Link
+            href={`/compare?symbols=${encodeURIComponent(ticker)}`}
+            className="block rounded-full border border-border px-3 py-2 text-center text-sm hover:border-accent"
+          >
+            Compare {ticker} with other stocks
+          </Link>
           <Card title="Installous Score" action={s && <ScoreBadge score={s.overall} rating={s.rating} />}>
             {s ? <FactorBars factors={s.factors} /> : <div className="h-64 animate-pulse rounded-lg bg-surface-2" />}
           </Card>
@@ -139,7 +146,9 @@ export function StockView({ ticker }: { ticker: string }) {
         )}
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <EventsCard ticker={ticker} currency={f?.currency} />
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card title="Key metrics" className="lg:col-span-2">
           {f ? (
             <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
