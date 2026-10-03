@@ -39,6 +39,12 @@ A paper-money portfolio that runs on rules alone, with no human picks:
 4. Only trim or top up a position once it drifts more than 2 points from its target weight.
 5. Every fill pays a 0.05% simulated trading cost. Returns exclude dividends for both the fund and the S&P 500 (SPY).
 
+The Fund page also shows its track record (return, worst drop from a peak, volatility, win rate, best and worst
+positions) and a **5-year backtest** of the same rules (`npm run backtest`, logic in `src/lib/backtest.ts`). Free data
+only has today's fundamentals, so the backtest ranks stocks by the momentum factor alone, which can be rebuilt from past
+prices, and each day's decisions use only prices up to the day before. It's compared against SPY and against simply
+buying the same 50 stocks and holding them, because those stocks are today's large caps, chosen with hindsight.
+
 It runs in the demo's GitHub Actions workflow (`npm run fund`, logic in `src/lib/fund.ts`). Its state (cash, positions,
 trade log and daily value history) is saved to the `fund-data` branch. The Fund page reads the published copy, so the
 local app shows the same fund as the live demo. To restart the fund from $100,000, delete `fund.json` on that branch.
@@ -51,6 +57,14 @@ Requires Node.js 20.9+.
 npm install
 cp .env.example .env.local   # then add your ANTHROPIC_API_KEY
 npm run dev
+```
+
+Checks (the same ones CI runs on every pull request):
+
+```bash
+npm run lint
+npm run typecheck
+npm test
 ```
 
 Open http://localhost:3000.

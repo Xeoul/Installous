@@ -5,6 +5,7 @@
 import type { AdvisorData } from "./advisor-core";
 import type { ChartData, ChartRange } from "./chart";
 import { DEFAULT_PROFILE, DEFAULT_WATCHLIST } from "./defaults";
+import type { BacktestView } from "./backtest";
 import type { FundView } from "./fund";
 import type { Fundamentals, NewsItem, Quote, SearchResult } from "./market";
 import { computePortfolio, mergeHolding, type Pick, type PortfolioSnapshot } from "./portfolio";
@@ -113,6 +114,12 @@ export function getDemoMeta(): Promise<DemoMeta> {
 export function getFund(): Promise<FundView> {
   if (DEMO) return snapshot("fund.json");
   return json("/api/fund");
+}
+
+/** The AI Fund rules replayed over the last 5 years. */
+export function getBacktest(): Promise<BacktestView> {
+  if (DEMO) return snapshot("backtest.json");
+  return json("/api/backtest");
 }
 
 export function getStock(ticker: string): Promise<StockData> {

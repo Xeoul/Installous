@@ -5,8 +5,10 @@ import { useEffect, useState } from "react";
 import { Card, Stat } from "@/components/Card";
 import { Change } from "@/components/Change";
 import { FundChart } from "@/components/FundChart";
+import { Backtest, TrackRecord } from "@/components/FundSections";
 import { ScoreBadge } from "@/components/ScoreBadge";
-import { getFund, stockHref } from "@/lib/client-data";
+import type { BacktestView } from "@/lib/backtest";
+import { getBacktest, getFund, stockHref } from "@/lib/client-data";
 import { money, signedPct } from "@/lib/format";
 import type { FundView } from "@/lib/fund";
 
@@ -17,8 +19,11 @@ export default function FundPage() {
   const [fund, setFund] = useState<FundView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [backtest, setBacktest] = useState<BacktestView | null>(null);
 
   useEffect(() => {
+    // The backtest is optional: the section just doesn't show if it can't load.
+    getBacktest().then(setBacktest).catch(() => {});
     getFund()
       .then(setFund)
       .catch((e: Error) => setError(e.message));
@@ -87,6 +92,8 @@ export default function FundPage() {
       <Card title="Performance">
         {fund ? <FundChart history={fund.history} /> : <div className="h-64 animate-pulse rounded-lg bg-surface-2" />}
       </Card>
+
+      {fund?.stats && <TrackRecord {...fund.stats} />}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card title={`Holdings${fund ? ` (${fund.holdings.length})` : ""}`} className="lg:col-span-2">
@@ -194,6 +201,8 @@ export default function FundPage() {
           </>
         )}
       </Card>
+
+      {backtest && <Backtest bt={backtest} />}
 
       <p className="text-xs text-muted">
         Simulated with paper money for research and entertainment. Past results, simulated or real, don&apos;t predict

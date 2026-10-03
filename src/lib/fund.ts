@@ -1,6 +1,7 @@
 // The AI Fund: a rules-only paper portfolio driven by the Installous score.
 // Pure logic (no I/O) so the same code runs in the scheduled job and in tests;
 // scripts/fund.ts loads prices, calls stepFund, and saves the result.
+import { perfStats, tradeStats, type PerfStats, type TradeStats } from "./fund-stats";
 import type { Pick } from "./portfolio";
 import type { Rating } from "./scoring";
 
@@ -262,6 +263,7 @@ export interface FundView {
   holdings: FundHoldingView[];
   history: FundPoint[];
   trades: FundTrade[]; // newest first
+  stats: { fund: PerfStats; benchmark: PerfStats; trading: TradeStats };
 }
 
 export function fundView(s: FundState, picks: Pick[]): FundView {
@@ -307,5 +309,14 @@ export function fundView(s: FundState, picks: Pick[]): FundView {
     holdings,
     history: s.history,
     trades: [...s.trades].reverse(),
+    stats: {
+      fund: perfStats(s.history.map((p) => ({ date: p.date, value: p.equity }))),
+      benchmark: perfStats(s.history.map((p) => ({ date: p.date, value: p.benchmark }))),
+      trading: tradeStats(
+        s.trades,
+        new Map(picks.filter((p) => p.price !== null).map((p) => [p.ticker, p.price as number])),
+        last?.date ?? s.startDate,
+      ),
+    },
   };
 }

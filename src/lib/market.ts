@@ -315,3 +315,21 @@ export async function getNews(rawTicker: string): Promise<NewsItem[]> {
     }));
   });
 }
+
+/** Daily closes for the last `years` years, dated in exchange (New York) time. */
+export async function getDailyCloses(rawTicker: string, years: number): Promise<{ date: string; close: number }[]> {
+  const ticker = normalizeTicker(rawTicker);
+  return cached(`daily:${ticker}:${years}`, 60 * MINUTE, async () => {
+    const chart = await yf.chart(ticker, {
+      period1: new Date(Date.now() - years * 365.25 * 86_400_000),
+      interval: "1d",
+      includePrePost: false,
+    });
+    return chart.quotes
+      .filter((q) => typeof q.close === "number")
+      .map((q) => ({
+        date: q.date.toLocaleDateString("en-CA", { timeZone: "America/New_York" }),
+        close: q.close as number,
+      }));
+  });
+}
