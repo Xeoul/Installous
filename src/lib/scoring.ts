@@ -119,7 +119,13 @@ function growthScore(f: Fundamentals): FactorScore {
   return { key: "growth", label: FACTOR_LABELS.growth, score: average(parts), notes };
 }
 
-function momentumScore(f: Fundamentals): FactorScore {
+export type MomentumInputs = Pick<
+  Fundamentals,
+  "price" | "fiftyDayAverage" | "twoHundredDayAverage" | "fiftyTwoWeekChangePercent" | "fiftyTwoWeekHigh" | "fiftyTwoWeekLow"
+>;
+
+/** The price-only factor; exported so the backtest can rebuild it from historical prices. */
+export function momentumScore(f: MomentumInputs): FactorScore {
   const notes: string[] = [];
   const parts: (number | null)[] = [];
   const p = f.price;

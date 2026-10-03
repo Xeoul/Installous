@@ -15,6 +15,7 @@
   --down: #c02f2f;
   --warn: #9a6400;
   --grid: #e8e7e2;
+  --series-2: #eb6834;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -33,6 +34,7 @@
     --down: #e66767;
     --warn: #fab219;
     --grid: #2a2a28;
+    --series-2: #d95926;
   }
 }
 

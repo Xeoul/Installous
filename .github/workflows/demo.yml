@@ -35,6 +35,8 @@ jobs:
       - run: npm ci
       - name: Snapshot market data
         run: npm run demo:data
+      - name: Backtest the AI Fund rules
+        run: npm run backtest
       - uses: actions/checkout@v5
         with:
           ref: fund-data
