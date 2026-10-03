@@ -333,3 +333,87 @@ export async function getDailyCloses(rawTicker: string, years: number): Promise<
       }));
   });
 }
+
+export interface StockEvents {
+  ticker: string;
+  nextEarnings: {
+    date: string; // ISO
+    confirmed: boolean;
+    epsAverage: number | null;
+    epsLow: number | null;
+    epsHigh: number | null;
+    revenueAverage: number | null;
+  } | null;
+  /** Up to the last four reported quarters, oldest first. */
+  earningsHistory: { quarter: string; epsActual: number | null; epsEstimate: number | null; surprisePercent: number | null }[];
+  dividends: {
+    annualRate: number | null;
+    yieldPercent: number | null;
+    exDividendDate: string | null;
+    payoutRatioPercent: number | null;
+    /** Total paid per calendar year, last 5 years (oldest first). */
+    byYear: { year: number; total: number; payments: number }[];
+  };
+}
+
+const isoOrNull = (d: unknown) => (d instanceof Date && !Number.isNaN(d.getTime()) ? d.toISOString() : null);
+
+/** Earnings dates, estimates and recent results, plus dividend history. */
+export async function getEvents(rawTicker: string): Promise<StockEvents> {
+  const ticker = normalizeTicker(rawTicker);
+  return cached(`events:${ticker}`, 6 * 60 * MINUTE, async () => {
+    const [s, chart] = await Promise.all([
+      yf.quoteSummary(ticker, { modules: ["calendarEvents", "earningsHistory", "summaryDetail"] }).catch(() => null),
+      yf
+        .chart(ticker, { period1: new Date(Date.now() - 5.5 * 365.25 * 86_400_000), interval: "1mo", events: "div" })
+        .catch(() => null),
+    ]);
+    const cal = s?.calendarEvents?.earnings;
+    const nextDate = cal?.earningsDate?.find((d) => d instanceof Date && d.getTime() > Date.now() - 86_400_000);
+    const sd = s?.summaryDetail;
+
+    const byYear = new Map<number, { total: number; payments: number }>();
+    for (const d of chart?.events?.dividends ?? []) {
+      const year = new Date(d.date).getUTCFullYear();
+      const y = byYear.get(year) ?? { total: 0, payments: 0 };
+      y.total += d.amount;
+      y.payments += 1;
+      byYear.set(year, y);
+    }
+    const thisYear = new Date().getUTCFullYear();
+
+    return {
+      ticker,
+      nextEarnings: nextDate
+        ? {
+            date: nextDate.toISOString(),
+            confirmed: cal?.isEarningsDateEstimate === false,
+            epsAverage: num(cal?.earningsAverage),
+            epsLow: num(cal?.earningsLow),
+            epsHigh: num(cal?.earningsHigh),
+            revenueAverage: num(cal?.revenueAverage),
+          }
+        : null,
+      earningsHistory: (s?.earningsHistory?.history ?? [])
+        .map((h) => ({
+          quarter: isoOrNull(h.quarter) ?? "",
+          epsActual: num(h.epsActual),
+          epsEstimate: num(h.epsEstimate),
+          surprisePercent: num(h.surprisePercent) === null ? null : Math.round((num(h.surprisePercent) as number) * 10_000) / 100,
+        }))
+        .filter((h) => h.quarter)
+        .sort((a, b) => a.quarter.localeCompare(b.quarter))
+        .slice(-4),
+      dividends: {
+        annualRate: num(sd?.dividendRate),
+        yieldPercent: num(sd?.dividendYield) === null ? null : (num(sd?.dividendYield) as number) * 100,
+        exDividendDate: isoOrNull(sd?.exDividendDate),
+        payoutRatioPercent: num(sd?.payoutRatio) === null ? null : (num(sd?.payoutRatio) as number) * 100,
+        byYear: [...byYear.entries()]
+          .filter(([y]) => y > thisYear - 5)
+          .sort((a, b) => a[0] - b[0])
+          .map(([year, v]) => ({ year, total: Math.round(v.total * 10_000) / 10_000, payments: v.payments })),
+      },
+    };
+  });
+}

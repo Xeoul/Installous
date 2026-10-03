@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { DemoBanner } from "@/components/DemoBanner";
 import { Nav } from "@/components/Nav";
@@ -17,6 +17,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Installous — Personal AI Investor",
   description: "Research stocks, rank ideas, and get AI-powered investment analysis.",
+  appleWebApp: { capable: true, title: "Installous", statusBarStyle: "black-translucent" },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f6f6f4" },
+    { media: "(prefers-color-scheme: dark)", color: "#111110" },
+  ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

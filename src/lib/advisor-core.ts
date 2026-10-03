@@ -3,7 +3,7 @@
 // in the static demo; each side supplies its own AdvisorData.
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import type { Fundamentals, HistoryRange, NewsItem, PriceHistory, SearchResult } from "./market";
+import type { Fundamentals, HistoryRange, NewsItem, PriceHistory, SearchResult, StockEvents } from "./market";
 import type { Pick, PortfolioSnapshot } from "./portfolio";
 import type { StockScore } from "./scoring";
 import type { InvestorProfile } from "./store";
@@ -28,6 +28,7 @@ export interface AdvisorData {
   portfolio(): Promise<PortfolioSnapshot>;
   topPicks(): Promise<Pick[]>;
   news(ticker: string): Promise<NewsItem[]>;
+  events(ticker: string): Promise<StockEvents>;
   addToWatchlist(ticker: string): Promise<string[]>;
 }
 
@@ -64,6 +65,7 @@ const toolInputs = {
   get_portfolio: z.object({}),
   get_top_picks: z.object({ limit: z.number().int().min(1).max(50).default(10) }),
   get_news: tickerInput,
+  get_earnings_and_dividends: tickerInput,
   add_to_watchlist: tickerInput,
 } as const;
 
@@ -127,6 +129,16 @@ const TOOLS: Anthropic.Beta.BetaToolUnion[] = [
     },
   },
   {
+    name: "get_earnings_and_dividends",
+    description:
+      "Get a stock's next earnings date with EPS and revenue estimates, its last four quarters of reported EPS versus estimates (beats and misses), and its dividend rate, yield, payout ratio and yearly dividend history.",
+    input_schema: {
+      type: "object",
+      properties: { ticker: { type: "string" } },
+      required: ["ticker"],
+    },
+  },
+  {
     name: "add_to_watchlist",
     description: "Add a stock to the investor's watchlist. Only do this when the investor asks you to.",
     input_schema: {
@@ -147,6 +159,7 @@ const TOOL_LABELS: Record<ToolName, (input: Record<string, unknown>) => string> 
   get_portfolio: () => "Reviewing your portfolio",
   get_top_picks: () => "Screening top-ranked stocks",
   get_news: (i) => `Reading ${upper(i.ticker)} news`,
+  get_earnings_and_dividends: (i) => `Checking ${upper(i.ticker)} earnings & dividends`,
   add_to_watchlist: (i) => `Adding ${upper(i.ticker)} to watchlist`,
 };
 
@@ -223,6 +236,10 @@ async function runTool(name: ToolName, input: Record<string, unknown>, data: Adv
     case "get_news": {
       const { ticker } = toolInputs.get_news.parse(input);
       return await data.news(ticker);
+    }
+    case "get_earnings_and_dividends": {
+      const { ticker } = toolInputs.get_earnings_and_dividends.parse(input);
+      return await data.events(ticker);
     }
     case "add_to_watchlist": {
       const { ticker } = toolInputs.add_to_watchlist.parse(input);

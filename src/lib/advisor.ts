@@ -1,7 +1,7 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { runAdvisorLoop, type AdvisorData, type AdvisorEvent, type ChatTurn } from "./advisor-core";
-import { getHistory, getNews, getQuotes, searchTickers } from "./market";
+import { getEvents, getHistory, getNews, getQuotes, searchTickers } from "./market";
 import { buildPicks, scoreTicker } from "./picks";
 import { computePortfolio } from "./portfolio";
 import { addToWatchlist, readStore } from "./store";
@@ -19,6 +19,7 @@ const serverData: AdvisorData = {
   portfolio: portfolioSnapshot,
   topPicks: async () => buildPicks((await readStore()).watchlist),
   news: getNews,
+  events: getEvents,
   addToWatchlist: async (ticker) => (await addToWatchlist(ticker)).watchlist,
 };
 

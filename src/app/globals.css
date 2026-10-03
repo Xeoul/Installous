@@ -15,7 +15,10 @@
   --down: #c02f2f;
   --warn: #9a6400;
   --grid: #e8e7e2;
+  --series-1: #2a78d6;
   --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -34,7 +37,10 @@
     --down: #e66767;
     --warn: #fab219;
     --grid: #2a2a28;
+    --series-1: #3987e5;
     --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
   }
 }
 

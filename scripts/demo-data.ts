@@ -5,7 +5,7 @@
 import { mkdir, rm, writeFile } from "fs/promises";
 import path from "path";
 import { DEFAULT_WATCHLIST } from "../src/lib/defaults";
-import { getHistory, getNews, getQuotes, HISTORY_RANGES, type PriceHistory, type SearchResult } from "../src/lib/market";
+import { getEvents, getHistory, getNews, getQuotes, HISTORY_RANGES, type PriceHistory, type SearchResult } from "../src/lib/market";
 import { scoreTicker, type ScoredStock } from "../src/lib/picks";
 import { toPick } from "../src/lib/portfolio";
 import { DEFAULT_UNIVERSE } from "../src/lib/universe";
@@ -54,6 +54,11 @@ async function snapshotTicker(t: string): Promise<{ scored: ScoredStock; spark: 
     await write(`news/${t}.json`, await withRetry(`${t} news`, () => getNews(t)));
   } catch {
     await write(`news/${t}.json`, []);
+  }
+  try {
+    await write(`events/${t}.json`, await withRetry(`${t} events`, () => getEvents(t)));
+  } catch (err) {
+    console.warn(`  skipped ${t} events: ${(err as Error).message}`);
   }
   return { scored, spark };
 }

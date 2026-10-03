@@ -12,7 +12,8 @@
     "fund": "tsx --conditions=react-server scripts/fund.ts",
     "test": "vitest run",
     "typecheck": "next typegen && tsc --noEmit",
-    "backtest": "tsx --conditions=react-server scripts/backtest.ts"
+    "backtest": "tsx --conditions=react-server scripts/backtest.ts",
+    "alerts": "tsx scripts/alerts.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
