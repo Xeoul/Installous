@@ -18,13 +18,14 @@ permissions:
   pages: write
   id-token: write
 
-concurrency:
-  group: pages
-  cancel-in-progress: false
-
 jobs:
   build:
     runs-on: ubuntu-latest
+    # One run at a time updates the AI Fund, so its saved state is never
+    # written by two runs at once; queued runs wait their turn.
+    concurrency:
+      group: fund-state
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -82,6 +83,13 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    # Deploys only publish the latest build, so a newer one replaces an older
+    # one. This also stops a deploy stuck waiting on GitHub Pages (it happened
+    # on 2026-10-06 and blocked every run for six days) from holding up the fund.
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: true
+    timeout-minutes: 15
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
