@@ -100,3 +100,67 @@ body {
   outline: none;
 }
 .input:focus { border-color: var(--accent); }
+
+/* Rolling digits (RollingNumber) */
+.rolling-number {
+  display: inline-flex;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  white-space: pre;
+}
+.rolling-digit {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  height: 1.1em;
+}
+.rolling-strip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  text-align: center;
+  transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+.rolling-strip br {
+  line-height: 1.1;
+}
+.rolling-sizer {
+  visibility: hidden;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rolling-strip {
+    transition: none;
+  }
+}
+
+/* Pulsing "Live" dot */
+.live-dot {
+  position: relative;
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: var(--up);
+}
+.live-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: inherit;
+  animation: live-ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes live-ping {
+  75%,
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-dot::after {
+    animation: none;
+  }
+}

@@ -4,14 +4,23 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { CHART_RANGES, formatPointTime, nearestIndex, type ChartData, type ChartRange } from "@/lib/chart";
 import { DEMO, getHistory } from "@/lib/client-data";
 import { money } from "@/lib/format";
+import { MarketHours, sessionLabel } from "@/lib/live/pricing";
+import { useLivePrice, useLiveTail } from "@/lib/live/useLivePrice";
+import { RollingNumber } from "./RollingNumber";
 
 const HEIGHT = 280;
 const PAD_Y = 16;
 
+/** Live ticks closer together than this are merged into one chart point. */
+const LIVE_BUCKET_MS = 5_000;
+/** A streamed price older than this no longer counts as live. */
+const STALE_MS = 2 * 60_000;
+
 /**
  * Robinhood-style price chart: the big price above the chart follows your cursor
- * (or finger) as you scrub, and the line is green or red depending on whether the
- * stock is up or down over the selected range.
+ * (or finger) as you scrub, with digits that roll to each new value, and the line
+ * is green or red depending on whether the stock is up or down over the range.
+ * While the market is open, streamed prices extend the 1D line every second.
  */
 export function StockChart({ ticker, currency = "USD" }: { ticker: string; currency?: string }) {
   const [range, setRange] = useState<ChartRange>("1d");
@@ -20,6 +29,15 @@ export function StockChart({ ticker, currency = "USD" }: { ticker: string; curre
   const [hover, setHover] = useState<number | null>(null);
   const [width, setWidth] = useState(0);
   const boxRef = useRef<HTMLDivElement>(null);
+  const live = useLivePrice(ticker);
+  const liveTail = useLiveTail(ticker, LIVE_BUCKET_MS);
+  const [now, setNow] = useState(() => Date.now());
+
+  // Re-check every few seconds whether the stream has gone quiet (market closed, connection lost).
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 5_000);
+    return () => clearInterval(id);
+  }, []);
 
   // Load data, and keep the 1D chart live while the page is open.
   useEffect(() => {
@@ -53,7 +71,18 @@ export function StockChart({ ticker, currency = "USD" }: { ticker: string; curre
   }, []);
 
   const current = data && data.range === range && data.ticker === ticker ? data : null;
-  const points = useMemo(() => current?.points ?? [], [current]);
+  const liveRegular = !!live && live.marketHours === MarketHours.Regular && Math.max(now, live.time) - live.time < STALE_MS;
+
+  const points = useMemo(() => {
+    const base = current?.points ?? [];
+    if (current?.range !== "1d" || !base.length) return base;
+    const lastBar = base[base.length - 1].t;
+    const end = current.sessionEnd ?? Infinity;
+    // Only ticks after the last loaded bar and inside the session the chart shows.
+    const tail = liveTail.filter((p) => p.t > lastBar && p.t <= end);
+    return tail.length ? [...base, ...tail] : base;
+  }, [current, liveTail]);
+  const extendedLive = current?.range === "1d" && points.length > (current?.points.length ?? 0);
 
   // 1D is plotted on a real clock (so the line stops mid-chart during the session);
   // longer ranges are plotted by index so nights and weekends don't leave gaps.
@@ -81,13 +110,31 @@ export function StockChart({ ticker, currency = "USD" }: { ticker: string; curre
   }, [current, points, width]);
 
   const last = points[points.length - 1];
-  const shown = hover !== null ? points[hover] : last;
   const baseline = current?.baseline;
   const up = last && baseline !== undefined ? last.close >= baseline : true;
   const tone = up ? "var(--up)" : "var(--down)";
-  const diff = shown && baseline !== undefined ? shown.close - baseline : null;
-  const diffPct = diff !== null && baseline ? (diff / baseline) * 100 : null;
   const rangeInfo = CHART_RANGES.find((r) => r.key === range)!;
+
+  // The headline number: the scrubbed point, else the live price while the market's
+  // open, else the last close in the chart.
+  let headPrice: number | null = null;
+  let diff: number | null = null;
+  if (hover !== null && points[hover]) {
+    headPrice = points[hover].close;
+    diff = baseline !== undefined ? headPrice - baseline : null;
+  } else if (liveRegular && live) {
+    headPrice = live.price;
+    // If the loaded 1D chart is from an earlier session, use the stream's own change for today.
+    diff = range === "1d" && !extendedLive && live.change !== null ? live.change : baseline !== undefined ? headPrice - baseline : null;
+  } else if (last) {
+    headPrice = last.close;
+    diff = baseline !== undefined ? headPrice - baseline : null;
+  }
+  const diffPct = diff !== null && headPrice !== null && headPrice - diff !== 0 ? (diff / (headPrice - diff)) * 100 : null;
+  const shownTime = hover !== null && points[hover] ? points[hover].t : null;
+
+  // Outside regular hours, Robinhood shows the extended-hours price under the headline.
+  const extendedLabel = live && !liveRegular && now - live.time < 30 * 60_000 ? sessionLabel(live.marketHours) : null;
 
   const onPointer = useCallback(
     (e: React.PointerEvent) => {
@@ -116,20 +163,37 @@ export function StockChart({ ticker, currency = "USD" }: { ticker: string; curre
     <div>
       {/* Price header that tracks the cursor */}
       <div className="mb-4">
-        <div className="num text-4xl font-semibold tracking-tight">{shown ? money(shown.close, currency) : "…"}</div>
+        <div className="text-4xl font-semibold tracking-tight">
+          {headPrice !== null ? <RollingNumber value={money(headPrice, currency)} /> : "…"}
+        </div>
         <div className="num mt-1 flex flex-wrap items-baseline gap-x-2 text-sm">
           {diff !== null && diffPct !== null ? (
-            <span style={{ color: diff >= 0 ? "var(--up)" : "var(--down)" }} className="font-medium">
-              {diff >= 0 ? "▲" : "▼"} {money(Math.abs(diff), currency)} ({diffPct >= 0 ? "+" : ""}
-              {diffPct.toFixed(2)}%)
+            <span style={{ color: diff >= 0 ? "var(--up)" : "var(--down)" }} className="inline-flex items-baseline gap-1 font-medium">
+              {diff >= 0 ? "▲" : "▼"}
+              <RollingNumber value={`${money(Math.abs(diff), currency)} (${diffPct >= 0 ? "+" : ""}${diffPct.toFixed(2)}%)`} />
             </span>
           ) : (
             <span className="text-muted">—</span>
           )}
-          <span className="text-text-2">
-            {hover !== null && shown ? formatPointTime(shown.t, range) : rangeInfo.period}
-          </span>
+          <span className="text-text-2">{shownTime !== null ? formatPointTime(shownTime, range) : rangeInfo.period}</span>
+          {liveRegular && shownTime === null && (
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-up" title="Streaming live prices">
+              <span className="live-dot" aria-hidden /> Live
+            </span>
+          )}
         </div>
+        {extendedLabel && live && shownTime === null && (
+          <div className="num mt-1 flex flex-wrap items-baseline gap-x-2 text-sm text-text-2">
+            <RollingNumber value={money(live.price, currency)} className="font-medium text-text" />
+            {live.change !== null && live.changePercent !== null && (
+              <span style={{ color: live.change >= 0 ? "var(--up)" : "var(--down)" }}>
+                {live.change >= 0 ? "▲" : "▼"} {money(Math.abs(live.change), currency)} ({live.changePercent >= 0 ? "+" : ""}
+                {live.changePercent.toFixed(2)}%)
+              </span>
+            )}
+            <span>{extendedLabel}</span>
+          </div>
+        )}
       </div>
 
       {/* Chart */}
