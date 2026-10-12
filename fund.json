@@ -10,70 +10,80 @@
       "name": "Micron Technology, Inc.",
       "shares": 9.386390796766449,
       "costBasis": 1065.3722199,
-      "openedAt": "2026-09-29"
+      "openedAt": "2026-09-29",
+      "lastPrice": 1029
     },
     {
       "ticker": "NVDA",
       "name": "NVIDIA Corporation",
       "shares": 43.87621816835217,
       "costBasis": 227.9139,
-      "openedAt": "2026-09-29"
+      "openedAt": "2026-09-29",
+      "lastPrice": 229.28
     },
     {
       "ticker": "CVX",
       "name": "Chevron Corporation",
       "shares": 49.01192810646116,
       "costBasis": 204.03196499999999,
-      "openedAt": "2026-09-29"
+      "openedAt": "2026-09-29",
+      "lastPrice": 211.98
     },
     {
       "ticker": "MSFT",
       "name": "Microsoft Corporation",
       "shares": 19.60227205622904,
       "costBasis": 510.14494499999995,
-      "openedAt": "2026-09-29"
+      "openedAt": "2026-09-29",
+      "lastPrice": 535.07
     },
     {
       "ticker": "META",
       "name": "Meta Platforms, Inc.",
       "shares": 13.606047507147597,
       "costBasis": 734.9673,
-      "openedAt": "2026-09-29"
+      "openedAt": "2026-09-29",
+      "lastPrice": 718.67
     },
     {
       "ticker": "CRM",
       "name": "Salesforce, Inc.",
       "shares": 44.31489280964165,
       "costBasis": 225.6577725,
-      "openedAt": "2026-09-29"
+      "openedAt": "2026-09-29",
+      "lastPrice": 229.13
     },
     {
       "ticker": "TXN",
       "name": "Texas Instruments Incorporated",
       "shares": 35.47220250115565,
       "costBasis": 281.91088499999995,
-      "openedAt": "2026-09-29"
+      "openedAt": "2026-09-29",
+      "lastPrice": 283.74
     },
     {
       "ticker": "XOM",
       "name": "ExxonMobil Holdings Corporation",
       "shares": 61.95569501782505,
       "costBasis": 161.40566249999998,
-      "openedAt": "2026-09-29"
+      "openedAt": "2026-09-29",
+      "lastPrice": 168.94
     },
     {
       "ticker": "GOOGL",
       "name": "Alphabet Inc.",
       "shares": 29.270514243566417,
       "costBasis": 341.640735,
-      "openedAt": "2026-09-29"
+      "openedAt": "2026-09-29",
+      "lastPrice": 351.66
     },
     {
       "ticker": "AVGO",
       "name": "Broadcom Inc.",
       "shares": 28.15335051194475,
       "costBasis": 355.19750999999997,
-      "openedAt": "2026-09-29"
+      "openedAt": "2026-09-29",
+      "lastPrice": 361.54
     }
   ],
   "lastRebalance": "2026-10-06",
@@ -216,5 +226,5 @@
       "reason": "New pick: #10 with score 74 (Strong Buy); strongest on growth 100, sentiment 100"
     }
   ],
-  "updatedAt": "2026-10-12T03:28:22.906Z"
+  "updatedAt": "2026-10-12T03:53:07.305Z"
 }
