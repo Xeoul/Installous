@@ -141,3 +141,17 @@ describe("fundView", () => {
     expect(view.holdings.reduce((a, h) => a + h.weight, 0)).toBeCloseTo(100, 0);
   });
 });
+
+describe("missing prices", () => {
+  it("values a holding at its last known price, not what was paid, when today's price is missing", () => {
+    const first = run(null, universe(), "2026-09-29").state;
+    const up = universe().map((p) => ({ ...p, price: 150 }));
+    const day2 = run(first, up, "2026-09-30").state;
+    // On day 3 T01 has no price; it should still count at 150, not its ~100 cost.
+    const day3Picks = up.map((p) => (p.ticker === "T01" ? { ...p, price: null } : p));
+    const day3 = run(day2, day3Picks, "2026-10-01").state;
+    expect(day3.history[2].equity).toBeCloseTo(day2.history[1].equity, 0);
+    expect(fundView(day3, day3Picks).holdings.find((h) => h.ticker === "T01")?.price).toBe(150);
+  });
+});
+

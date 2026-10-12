@@ -29,6 +29,8 @@ export interface FundPosition {
   shares: number;
   costBasis: number; // average cost per share
   openedAt: string; // YYYY-MM-DD
+  /** Last price seen, used to value the position on a run where today's price is missing. */
+  lastPrice?: number;
 }
 
 export interface FundTrade {
@@ -89,8 +91,11 @@ function topFactors(p: Pick): string {
     .join(", ");
 }
 
+/** Today's price, else the last one seen, else what was paid. */
+const priceOf = (p: FundPosition, prices: Map<string, number>) => prices.get(p.ticker) ?? p.lastPrice ?? p.costBasis;
+
 function equityOf(state: FundState, prices: Map<string, number>): number {
-  return state.cash + state.positions.reduce((a, p) => a + p.shares * (prices.get(p.ticker) ?? p.costBasis), 0);
+  return state.cash + state.positions.reduce((a, p) => a + p.shares * priceOf(p, prices), 0);
 }
 
 /** Pick the target holdings and sell/buy toward equal weight. Mutates `s`. */
@@ -215,6 +220,10 @@ export function stepFund(prev: FundState | null, input: FundInput): { state: Fun
 
   const due = s.lastRebalance === null || daysBetween(s.lastRebalance, input.marketDate) >= R.rebalanceDays;
   if (due) rebalance(s, input, prices);
+  for (const pos of s.positions) {
+    const price = prices.get(pos.ticker);
+    if (price !== undefined) pos.lastPrice = price;
+  }
 
   // One point per market day; later runs on the same day overwrite it.
   const point: FundPoint = {
@@ -270,7 +279,7 @@ export function fundView(s: FundState, picks: Pick[]): FundView {
   const pickOf = new Map(picks.map((p) => [p.ticker, p]));
   const holdings = s.positions.map((pos) => {
     const p = pickOf.get(pos.ticker);
-    const price = p?.price ?? null;
+    const price = p?.price ?? pos.lastPrice ?? null;
     const value = pos.shares * (price ?? pos.costBasis);
     return {
       ticker: pos.ticker,

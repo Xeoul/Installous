@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { getQuotes } from "@/lib/market";
+import { getQuotes, normalizeTicker } from "@/lib/market";
 import { addToWatchlist, readStore, removeFromWatchlist } from "@/lib/store";
 import { errorResponse } from "../_util";
 
@@ -19,13 +19,22 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return errorResponse(new Error("ticker is required"), 400);
-  const store = await addToWatchlist(parsed.data.ticker);
-  return NextResponse.json(store.watchlist);
+  try {
+    // Only track tickers that exist.
+    const ticker = normalizeTicker(parsed.data.ticker);
+    if (!(await getQuotes([ticker]))[ticker]) return errorResponse(new Error(`Unknown ticker: ${ticker}`), 400);
+    return NextResponse.json((await addToWatchlist(ticker)).watchlist);
+  } catch (err) {
+    return errorResponse(err);
+  }
 }
 
 export async function DELETE(req: NextRequest) {
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return errorResponse(new Error("ticker is required"), 400);
-  const store = await removeFromWatchlist(parsed.data.ticker);
-  return NextResponse.json(store.watchlist);
+  try {
+    return NextResponse.json((await removeFromWatchlist(parsed.data.ticker)).watchlist);
+  } catch (err) {
+    return errorResponse(err);
+  }
 }

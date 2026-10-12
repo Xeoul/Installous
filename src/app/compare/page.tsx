@@ -144,14 +144,16 @@ function Compare() {
 
 function AddStock({ onAdd }: { onAdd: (ticker: string) => void }) {
   const [q, setQ] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [found, setFound] = useState<{ query: string; items: SearchResult[] }>({ query: "", items: [] });
+  // Only trust results that answer what's typed now, not an earlier query.
+  const results = found.query === q.trim() ? found.items : [];
 
   useEffect(() => {
     if (!q.trim()) return;
     const ctrl = new AbortController();
     const t = setTimeout(() => {
       searchTickers(q, ctrl.signal)
-        .then((r) => !ctrl.signal.aborted && setResults(r))
+        .then((r) => !ctrl.signal.aborted && setFound({ query: q.trim(), items: r }))
         .catch(() => {});
     }, 200);
     return () => {
@@ -163,7 +165,7 @@ function AddStock({ onAdd }: { onAdd: (ticker: string) => void }) {
   const add = (t: string) => {
     onAdd(t.toUpperCase());
     setQ("");
-    setResults([]);
+    setFound({ query: "", items: [] });
   };
 
   return (
@@ -196,7 +198,7 @@ function AddStock({ onAdd }: { onAdd: (ticker: string) => void }) {
 
 /** Percent change from the first shared day, so stocks at very different prices share one axis. */
 function PerformanceChart({ symbols, histories }: { symbols: string[]; histories: Record<string, ChartData> }) {
-  const ready = symbols.filter((s) => histories[s]?.points.length);
+  const ready = useMemo(() => symbols.filter((s) => histories[s]?.points.length), [symbols, histories]);
   const data = useMemo(() => {
     const byDate = new Map<string, Record<string, number>>();
     for (const s of ready) {
