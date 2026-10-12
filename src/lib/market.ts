@@ -65,7 +65,12 @@ function num(v: unknown): number | null {
 }
 
 export function normalizeTicker(raw: string): string {
-  return raw.trim().toUpperCase().replace(/[^A-Z0-9.\-^=]/g, "");
+  // "BRK/B" style share classes are "BRK-B" on Yahoo ("." suffixes are exchanges, like VOD.L).
+  return raw
+    .trim()
+    .toUpperCase()
+    .replace(/^([A-Z]+)\/([A-Z])$/, "$1-$2")
+    .replace(/[^A-Z0-9.\-^=]/g, "");
 }
 
 export async function getFundamentals(rawTicker: string): Promise<Fundamentals> {
@@ -320,7 +325,13 @@ export async function getNearestChain(rawTicker: string): Promise<Chain> {
   const spot = num(r.quote?.regularMarketPrice);
   if (!o || spot === null) throw new Error(`No option chain for ${ticker}`);
   const leg = (c: { strike: number; bid?: number; ask?: number }) => ({ strike: c.strike, bid: c.bid ?? 0, ask: c.ask ?? 0 });
-  return { expiry: o.expirationDate.toISOString().slice(0, 10), spot, puts: o.puts.map(leg), calls: o.calls.map(leg) };
+  return {
+    expiry: o.expirationDate.toISOString().slice(0, 10),
+    spot,
+    marketOpen: r.quote?.marketState === "REGULAR",
+    puts: o.puts.map(leg),
+    calls: o.calls.map(leg),
+  };
 }
 
 /** Daily SPY bars since 2006 joined with the VIX close, for the Options Lab. */

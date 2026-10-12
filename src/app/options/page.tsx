@@ -208,6 +208,13 @@ export default function OptionsLab() {
         <ResultCard title="Martingale" color="var(--series-2)" stats={m} start={s.startCash} />
       </div>
 
+      {sim && f?.trades === 0 && (
+        <p className="rounded-2xl border border-border bg-surface-2 p-4 text-sm text-text-2">
+          No trades in this period: with these strikes and wings the condor never paid the $5 minimum credit per contract.
+          Try a higher delta, wider wings or a longer period.
+        </p>
+      )}
+
       {sim && m?.bust && <BustNote result={sim.martingale} />}
 
       <Card title={sim?.from ? `Account value since ${fmtDate(sim.from)}` : "Account value"}>

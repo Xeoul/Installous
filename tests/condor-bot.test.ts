@@ -13,7 +13,7 @@ function chain(expiry: string, spot = 500): Chain {
     const fair = bsPrice(kind, spot, strike, t, 0.15);
     return { strike, bid: Math.max(0, fair - 0.01), ask: fair + 0.01 };
   };
-  return { expiry, spot, puts: strikes.map((k) => leg("put", k)), calls: strikes.map((k) => leg("call", k)) };
+  return { expiry, spot, marketOpen: true, puts: strikes.map((k) => leg("put", k)), calls: strikes.map((k) => leg("call", k)) };
 }
 
 const start = (equity = BOT_RULES.startCash): BotState => ({ ...newBotState(at("2026-10-12", "09:00")), equity });
@@ -45,6 +45,10 @@ describe("stepBot", () => {
     const wrongExpiry = stepBot(start(), { now: at("2026-10-13", "10:00"), chain: chain("2026-10-14"), closes: {} });
     expect(wrongExpiry.state.open).toBeNull();
     expect(wrongExpiry.state.note).toMatch(/No same-day/);
+
+    // A half day: same-day options still listed after the 1pm close.
+    const halfDay = stepBot(start(), { now: at("2026-11-27", "13:30"), chain: { ...chain("2026-11-27"), marketOpen: false }, closes: {} });
+    expect(halfDay.state.open).toBeNull();
 
     const opened = stepBot(start(), { now: at("2026-10-13", "10:00"), chain: chain("2026-10-13"), closes: {} });
     expect(opened.state.open).toMatchObject({ date: "2026-10-13", contracts: 1, streak: 0 });

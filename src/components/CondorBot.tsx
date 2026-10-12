@@ -78,7 +78,7 @@ export function CondorBot() {
                 ) : (
                   <span className="text-text-2">
                     {bot.open
-                      ? `Tomorrow: ${r.contracts}× after a win, ${size(bot.open.streak + 1)}× after a loss`
+                      ? `Next: ${r.contracts}× after a win, ${size(bot.open.streak + 1)}× after a loss`
                       : `Next trade: ${size(bot.streak)}×`}
                   </span>
                 )
