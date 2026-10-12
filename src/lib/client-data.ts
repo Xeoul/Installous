@@ -7,6 +7,7 @@ import type { ChartData, ChartRange } from "./chart";
 import { DEFAULT_PROFILE, DEFAULT_WATCHLIST } from "./defaults";
 import type { BacktestView } from "./backtest";
 import type { FundView } from "./fund";
+import type { IndexBar } from "./options";
 import type { Fundamentals, NewsItem, Quote, SearchResult, StockEvents } from "./market";
 import { computePortfolio, mergeHolding, type Pick, type PortfolioSnapshot } from "./portfolio";
 import type { StockScore } from "./scoring";
@@ -120,6 +121,12 @@ export function getFund(): Promise<FundView> {
 export function getBacktest(): Promise<BacktestView> {
   if (DEMO) return snapshot("backtest.json");
   return json("/api/backtest");
+}
+
+/** Daily S&P 500 and VIX history for the Options Lab. */
+export function getIndexBars(): Promise<IndexBar[]> {
+  if (DEMO) return snapshot("options.json");
+  return json("/api/options");
 }
 
 export function getStock(ticker: string): Promise<StockData> {

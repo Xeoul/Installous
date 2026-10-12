@@ -1,6 +1,7 @@
 import "server-only";
 import YahooFinance from "yahoo-finance2";
 import { createCache } from "./cache";
+import type { IndexBar } from "./options";
 
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
@@ -307,6 +308,27 @@ export async function getNews(rawTicker: string): Promise<NewsItem[]> {
         link: n.link,
         published: n.providerPublishTime.toISOString(),
       }));
+  });
+}
+
+/** Daily S&P 500 index bars since 2006 joined with the VIX close, for the Options Lab. */
+export async function getIndexBars(): Promise<IndexBar[]> {
+  return cached("index-bars", 60 * MINUTE, async () => {
+    const period1 = new Date("2006-01-01");
+    const [spx, vix] = await Promise.all([
+      yf.chart("^GSPC", { period1, interval: "1d" }),
+      yf.chart("^VIX", { period1, interval: "1d" }),
+    ]);
+    const day = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    const vixByDay = new Map(vix.quotes.filter((q) => typeof q.close === "number").map((q) => [day(q.date), q.close as number]));
+    const round = (x: number) => Math.round(x * 100) / 100;
+    return spx.quotes.flatMap((q) => {
+      const date = day(q.date);
+      const v = vixByDay.get(date);
+      return typeof q.open === "number" && typeof q.close === "number" && q.open > 0 && v
+        ? [{ date, open: round(q.open), close: round(q.close), vix: round(v) }]
+        : [];
+    });
   });
 }
 
