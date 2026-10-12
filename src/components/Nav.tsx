@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/", label: "Dashboard" },
   { href: "/picks", label: "Top Picks" },
   { href: "/fund", label: "AI Fund" },
+  { href: "/options", label: "Options Lab" },
   { href: "/compare", label: "Compare" },
   { href: "/advisor", label: "AI Advisor" },
   { href: "/portfolio", label: "Portfolio" },
