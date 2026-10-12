@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "startDate": "2026-10-12",
+  "rules": {
+    "ticker": "SPY",
+    "shortDelta": 0.1,
+    "width": 2,
+    "contracts": 1,
+    "startCash": 25000,
+    "maxDoublings": null,
+    "feePerLeg": 0.04,
+    "slippage": 0.01,
+    "openFrom": 585,
+    "openUntil": 930,
+    "minCredit": 0.05
+  },
+  "equity": 25000,
+  "streak": 0,
+  "bust": null,
+  "open": null,
+  "trades": [],
+  "history": [
+    {
+      "date": "2026-10-12",
+      "equity": 25000
+    }
+  ],
+  "note": null,
+  "updatedAt": "2026-10-12T21:57:45.217Z"
+}
