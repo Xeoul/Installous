@@ -4,12 +4,15 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Card, Stat } from "@/components/Card";
 import { Change } from "@/components/Change";
+import { RollingNumber } from "@/components/RollingNumber";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { Sparkline } from "@/components/Sparkline";
 import type { ChartData } from "@/lib/chart";
 import { getFund, getPicks, getPortfolio, getSparklines, getWatchlist, stockHref } from "@/lib/client-data";
 import { money } from "@/lib/format";
 import type { FundView } from "@/lib/fund";
+import { MarketHours } from "@/lib/live/pricing";
+import { useLivePrices } from "@/lib/live/useLivePrice";
 import type { Quote } from "@/lib/market";
 import type { Pick, PortfolioSnapshot } from "@/lib/portfolio";
 
@@ -18,6 +21,7 @@ export default function Dashboard() {
   const [watchlist, setWatchlist] = useState<Quote[] | null>(null);
   const [picks, setPicks] = useState<Pick[] | null>(null);
   const [sparks, setSparks] = useState<Record<string, ChartData>>({});
+  const live = useLivePrices(watchlist?.map((q) => q.ticker) ?? []);
   const [fund, setFund] = useState<FundView | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -130,21 +134,29 @@ export default function Dashboard() {
             <p className="text-sm text-text-2">Your watchlist is empty. Search for a stock to add it.</p>
           ) : (
             <ul className="divide-y divide-border">
-              {watchlist.map((q) => (
-                <li key={q.ticker}>
-                  <Link href={stockHref(q.ticker)} className="flex items-center gap-3 py-2.5">
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium">{q.ticker}</div>
-                      <div className="truncate text-xs text-text-2">{q.name}</div>
-                    </div>
-                    <Sparkline data={sparks[q.ticker]} />
-                    <div className="w-20 text-right">
-                      <div className="num text-sm">{money(q.price)}</div>
-                      <Change value={q.changePercent} className="text-xs" />
-                    </div>
-                  </Link>
-                </li>
-              ))}
+              {watchlist.map((quote) => {
+                // While the market's open, streamed prices tick the row every second.
+                const tick = live[quote.ticker];
+                const q =
+                  tick?.marketHours === MarketHours.Regular && tick.time > Date.parse(quote.marketTime ?? "0")
+                    ? { ...quote, price: tick.price, changePercent: tick.changePercent ?? quote.changePercent }
+                    : quote;
+                return (
+                  <li key={q.ticker}>
+                    <Link href={stockHref(q.ticker)} className="flex items-center gap-3 py-2.5">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium">{q.ticker}</div>
+                        <div className="truncate text-xs text-text-2">{q.name}</div>
+                      </div>
+                      <Sparkline data={sparks[q.ticker]} />
+                      <div className="w-20 text-right">
+                        <div className="num text-sm">{q.price !== null ? <RollingNumber value={money(q.price)} /> : money(q.price)}</div>
+                        <Change value={q.changePercent} className="text-xs" />
+                      </div>
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </Card>

@@ -7,7 +7,8 @@ scoring model, and a Claude-powered AI analyst that knows your portfolio and inv
 
 - **Dashboard**: portfolio value, today's change, total gain/loss, your watchlist with 1D sparklines, and the day's top-ranked stocks.
 - **Top Picks**: ranks ~40 large-cap US stocks plus your watchlist by the Installous score. Sort by any factor and filter by sector.
-- **Stock pages**: a Robinhood-style chart with a live 1D intraday view (dotted previous-close line, green or red for up or down, and a price that follows your cursor as you scrub) plus 1W, 1M, 3M, YTD, 1Y and 5Y, factor score breakdown, key metrics, news, and a one-click AI investment thesis.
+- **Stock pages**: a Robinhood-style chart with a live 1D intraday view (dotted previous-close line, green or red for up or down, and a price whose digits roll to each new value as you scrub) plus 1W, 1M, 3M, YTD, 1Y and 5Y, factor score breakdown, key metrics, news, and a one-click AI investment thesis.
+- **Live prices**: while the market's open, prices stream in every second from Yahoo Finance's free feed, straight to your browser. The headline ticks, the 1D line grows as you watch, and watchlist rows update too. Outside regular hours, the pre-market or after-hours price shows under the headline.
 - **AI Advisor**: chat with an analyst that calls live tools (quotes, fundamentals, price history, news, your portfolio, the screener, and web search) and gives clear buy / hold / avoid views tailored to your profile.
 - **AI Fund**: a rules-only $100,000 paper portfolio that picks stocks from the Installous score by itself and is
   measured against the S&P 500, with every trade and its reason logged.
