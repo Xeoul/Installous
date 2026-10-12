@@ -47,6 +47,8 @@ export interface Chain {
   /** Expiration date (YYYY-MM-DD). */
   expiry: string;
   spot: number;
+  /** Whether the regular session is open right now (false after an early close on a half day). */
+  marketOpen: boolean;
   puts: ChainLeg[];
   calls: ChainLeg[];
 }
@@ -209,6 +211,8 @@ export function stepBot(prev: BotState | null, input: BotInput): { state: BotSta
     const chain = input.chain;
     if (!chain || chain.expiry !== today) {
       state.note = "No same-day options to trade.";
+    } else if (!chain.marketOpen) {
+      state.note = "The market isn't open.";
     } else {
       const condor = condorFromChain(chain, rules);
       if (!condor) {
