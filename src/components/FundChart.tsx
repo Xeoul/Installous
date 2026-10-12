@@ -22,11 +22,14 @@ export function FundChart({
   series = FUND_SERIES,
   longRange = false,
   caption = "AI Fund value vs S&P 500 by day",
+  fineAxis = false,
 }: {
   history: { date: string }[];
   series?: ChartSeries[];
   longRange?: boolean;
   caption?: string;
+  /** Label the value axis in whole dollars, for values that move by less than $1k. */
+  fineAxis?: boolean;
 }) {
   const fmtDate = (d: string) =>
     new Date(`${d}T12:00:00Z`).toLocaleDateString(
@@ -69,11 +72,11 @@ export function FundChart({
             />
             <YAxis
               domain={["auto", "auto"]}
-              tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`}
+              tickFormatter={(v: number) => (fineAxis ? `$${Math.round(v).toLocaleString("en-US")}` : `$${(v / 1000).toFixed(0)}k`)}
               tick={{ fill: "var(--muted)", fontSize: 11 }}
               tickLine={false}
               axisLine={false}
-              width={48}
+              width={fineAxis ? 64 : 48}
             />
             <Tooltip
               cursor={{ stroke: "var(--muted)", strokeDasharray: "3 3" }}

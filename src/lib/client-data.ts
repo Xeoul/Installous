@@ -4,6 +4,7 @@
 // browser's localStorage.
 import type { AdvisorData } from "./advisor-core";
 import type { ChartData, ChartRange } from "./chart";
+import type { BotState } from "./condor-bot";
 import { DEFAULT_PROFILE, DEFAULT_WATCHLIST } from "./defaults";
 import type { BacktestView } from "./backtest";
 import type { FundView } from "./fund";
@@ -123,7 +124,13 @@ export function getBacktest(): Promise<BacktestView> {
   return json("/api/backtest");
 }
 
-/** Daily S&P 500 and VIX history for the Options Lab. */
+/** The live SPY condor bot's latest published state. */
+export function getCondorBot(): Promise<BotState> {
+  if (DEMO) return snapshot("condor.json");
+  return json("/api/condor");
+}
+
+/** Daily SPY and VIX history for the Options Lab. */
 export function getIndexBars(): Promise<IndexBar[]> {
   if (DEMO) return snapshot("options.json");
   return json("/api/options");
