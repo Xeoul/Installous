@@ -1,6 +1,7 @@
 import "server-only";
 import YahooFinance from "yahoo-finance2";
 import { createCache } from "./cache";
+import type { Chain } from "./condor-bot";
 import type { IndexBar } from "./options";
 
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
@@ -311,12 +312,23 @@ export async function getNews(rawTicker: string): Promise<NewsItem[]> {
   });
 }
 
-/** Daily S&P 500 index bars since 2006 joined with the VIX close, for the Options Lab. */
+/** The nearest-expiring option chain for a ticker (on a trading day, today's), for the condor bot. */
+export async function getNearestChain(rawTicker: string): Promise<Chain> {
+  const ticker = normalizeTicker(rawTicker);
+  const r = await yf.options(ticker);
+  const o = r.options[0];
+  const spot = num(r.quote?.regularMarketPrice);
+  if (!o || spot === null) throw new Error(`No option chain for ${ticker}`);
+  const leg = (c: { strike: number; bid?: number; ask?: number }) => ({ strike: c.strike, bid: c.bid ?? 0, ask: c.ask ?? 0 });
+  return { expiry: o.expirationDate.toISOString().slice(0, 10), spot, puts: o.puts.map(leg), calls: o.calls.map(leg) };
+}
+
+/** Daily SPY bars since 2006 joined with the VIX close, for the Options Lab. */
 export async function getIndexBars(): Promise<IndexBar[]> {
   return cached("index-bars", 60 * MINUTE, async () => {
     const period1 = new Date("2006-01-01");
     const [spx, vix] = await Promise.all([
-      yf.chart("^GSPC", { period1, interval: "1d" }),
+      yf.chart("SPY", { period1, interval: "1d" }),
       yf.chart("^VIX", { period1, interval: "1d" }),
     ]);
     const day = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });

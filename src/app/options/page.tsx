@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/Card";
+import { CondorBot } from "@/components/CondorBot";
 import { Change } from "@/components/Change";
 import { FundChart, type ChartSeries } from "@/components/FundChart";
 import { getIndexBars } from "@/lib/client-data";
@@ -88,13 +89,17 @@ export default function OptionsLab() {
           <span className="rounded-md border border-border bg-surface-2 px-2 py-0.5 text-xs font-medium text-text-2">Paper money</span>
         </div>
         <p className="mt-1 max-w-3xl text-text-2">
-          Test selling S&amp;P 500 (SPX) iron condors over 20 years of real market history, and see what the martingale
-          system does to it: double the size after every loss, go back to one after a win.
+          Sell SPY iron condors with the martingale system: double the size after every loss, go back to the base size
+          after a win. The live bot trades one every market day; the simulator below replays the same idea over 20 years.
         </p>
       </div>
 
+      <CondorBot />
+
+      <h2 className="pt-2 text-lg font-semibold">Simulator</h2>
+
       <Card title="Strategy">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Expiration" hint={s.dte === 0 ? "Open at 9:30, settle at 4:00 the same day" : undefined}>
             <select className="input w-full" value={s.dte} onChange={(e) => set("dte", Number(e.target.value))}>
               <option value={0}>Same day (0DTE)</option>
@@ -115,9 +120,9 @@ export default function OptionsLab() {
           </Field>
           <Field label="Wing width" hint="Distance to the protective long options">
             <select className="input w-full" value={s.width} onChange={(e) => set("width", Number(e.target.value))}>
-              {[5, 10, 25, 50].map((w) => (
+              {[1, 2, 3, 5, 10].map((w) => (
                 <option key={w} value={w}>
-                  {w} points (${(w * 100).toLocaleString()} wide)
+                  ${w} (up to ${(w * 100).toLocaleString()} per contract)
                 </option>
               ))}
             </select>
@@ -168,6 +173,15 @@ export default function OptionsLab() {
               ))}
             </select>
           </Field>
+          <Field label="Base size" hint="Contracts after a win; the martingale doubles from here">
+            <select className="input w-full" value={s.contracts} onChange={(e) => set("contracts", Number(e.target.value))}>
+              {[1, 2, 5, 10, 20, 50].map((n) => (
+                <option key={n} value={n}>
+                  {n} contract{n === 1 ? "" : "s"}
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field label="Martingale limit" hint="Give up and reset after this many doublings">
             <select
               className="input w-full"
@@ -184,8 +198,8 @@ export default function OptionsLab() {
           </Field>
         </div>
         <p className="mt-4 text-xs text-muted">
-          Base size {s.contracts} contract. Each trade pays ${s.feePerLeg.toFixed(2)} per contract per leg and gives up $
-          {(s.slippage * 100).toFixed(0)} per spread in slippage.
+          Each trade pays ${s.feePerLeg.toFixed(2)} per contract per leg in fees and gives up ${s.slippage.toFixed(2)} per spread
+          in slippage. SPY has had same-day expirations every weekday only since late 2022; earlier years assume it did.
         </p>
       </Card>
 
@@ -254,7 +268,7 @@ export default function OptionsLab() {
           {next && maxLoss !== null ? (
             <div className="space-y-3 text-sm">
               <p className="text-text-2">
-                From the {fmtDate(next.date)} close: S&amp;P 500 {next.spot.toLocaleString("en-US", { maximumFractionDigits: 0 })}, VIX{" "}
+                From the {fmtDate(next.date)} close: SPY {money(next.spot)}, VIX{" "}
                 {next.vix.toFixed(1)}.
               </p>
               <dl className="num grid grid-cols-2 gap-x-4 gap-y-1.5">
@@ -272,7 +286,7 @@ export default function OptionsLab() {
                 <dd className="text-right text-down">{usd0(maxLoss)}</dd>
                 <dt className="text-text-2">Breakevens</dt>
                 <dd className="text-right">
-                  {Math.round(next.condor.putShort - next.condor.credit)}–{Math.round(next.condor.callShort + next.condor.credit)}
+                  {(next.condor.putShort - next.condor.credit).toFixed(2)}–{(next.condor.callShort + next.condor.credit).toFixed(2)}
                 </dd>
               </dl>
               <p className="text-xs text-muted">
@@ -321,7 +335,7 @@ export default function OptionsLab() {
         <ul className="list-disc space-y-2 pl-5 text-sm text-text-2">
           <li>
             An <strong className="text-text">iron condor</strong> sells a put below the market and a call above it, and
-            buys cheaper options further out so the loss is capped. You keep the credit if the S&amp;P 500 finishes between
+            buys cheaper options further out so the loss is capped. You keep the credit if SPY finishes between
             the short strikes.
           </li>
           <li>
@@ -418,7 +432,7 @@ function TradeRow({ t }: { t: CondorTrade }) {
       </td>
       <td className="num px-3 py-2 text-xs">
         {t.putLong}/{t.putShort} · {t.callShort}/{t.callLong}
-        <span className="block text-muted">S&amp;P {Math.round(t.spot)} · credit {usd0(t.credit * 100)}</span>
+        <span className="block text-muted">SPY {t.spot.toFixed(2)} · credit {usd0(t.credit * 100)}</span>
       </td>
       <td className="num px-3 py-2 text-right">
         <span className={t.streak > 0 ? "font-semibold text-warn" : ""}>{t.contracts}×</span>

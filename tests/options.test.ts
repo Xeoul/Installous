@@ -40,14 +40,14 @@ describe("pricing", () => {
   });
 
   it("places short strikes on either side of the market, wings one width out", () => {
-    const c = buildCondor(5000, 7 / 252, 0.2, { shortDelta: 0.1, width: 25, slippage: 0 });
-    expect(c.putShort).toBeLessThan(5000);
-    expect(c.callShort).toBeGreaterThan(5000);
-    expect(c.putShort - c.putLong).toBe(25);
-    expect(c.callLong - c.callShort).toBe(25);
-    expect(c.putShort % 5).toBe(0);
+    const c = buildCondor(500, 7 / 252, 0.2, { shortDelta: 0.1, width: 3, slippage: 0 });
+    expect(c.putShort).toBeLessThan(500);
+    expect(c.callShort).toBeGreaterThan(500);
+    expect(c.putShort - c.putLong).toBe(3);
+    expect(c.callLong - c.callShort).toBe(3);
+    expect(Number.isInteger(c.putShort)).toBe(true);
     expect(c.credit).toBeGreaterThan(0);
-    expect(c.credit).toBeLessThan(25);
+    expect(c.credit).toBeLessThan(3);
   });
 
   it("settles between zero and the wing width", () => {
@@ -71,7 +71,7 @@ describe("sizing", () => {
 
 describe("simulateCondors", () => {
   it("keeps the credit on quiet days", () => {
-    const r = simulateCondors(bars(Array(30).fill(5000)), rules({ dte: 0, sizing: "fixed" }));
+    const r = simulateCondors(bars(Array(30).fill(500)), rules({ dte: 0, sizing: "fixed" }));
     expect(r.trades.length).toBe(29);
     expect(r.trades.every((t) => t.pnl > 0)).toBe(true);
     expect(r.stats.finalEquity).toBeGreaterThan(DEFAULT_RULES.startCash);
@@ -79,8 +79,8 @@ describe("simulateCondors", () => {
 
   it("only uses information available when each trade opens", () => {
     // A crash on the last day can't change the strikes chosen that morning.
-    const calm = bars([...Array(10).fill(5000)]);
-    const crash = bars([...Array(9).fill(5000), 4000]).map((b, i) => (i === 9 ? { ...b, vix: 60 } : b));
+    const calm = bars([...Array(10).fill(500)]);
+    const crash = bars([...Array(9).fill(500), 400]).map((b, i) => (i === 9 ? { ...b, vix: 60 } : b));
     const a = simulateCondors(calm, rules({ dte: 0 })).trades.at(-1)!;
     const b = simulateCondors(crash, rules({ dte: 0 })).trades.at(-1)!;
     expect([b.putShort, b.callShort, b.credit]).toEqual([a.putShort, a.callShort, a.credit]);
@@ -89,7 +89,7 @@ describe("simulateCondors", () => {
 
   it("goes bust under martingale when losses keep coming", () => {
     // The market falls 3% every day, so every same-day condor loses its maximum.
-    const closes = Array.from({ length: 40 }, (_, i) => 5000 * 0.97 ** i);
+    const closes = Array.from({ length: 40 }, (_, i) => 500 * 0.97 ** i);
     const mart = simulateCondors(bars(closes), rules({ dte: 0, sizing: "martingale", startCash: 25_000 }));
     const fixed = simulateCondors(bars(closes), rules({ dte: 0, sizing: "fixed", startCash: 25_000 }));
     expect(mart.stats.bust).not.toBeNull();
@@ -99,14 +99,14 @@ describe("simulateCondors", () => {
   });
 
   it("takes profit early on multi-day trades", () => {
-    const r = simulateCondors(bars(Array(60).fill(5000)), rules({ dte: 30, takeProfit: 0.5, sizing: "fixed" }));
+    const r = simulateCondors(bars(Array(60).fill(500)), rules({ dte: 30, takeProfit: 0.5, sizing: "fixed" }));
     expect(r.trades.length).toBeGreaterThan(1);
     expect(r.trades.some((t) => t.exit === "profit")).toBe(true);
     expect(r.trades.every((t) => t.pnl > 0)).toBe(true);
   });
 
   it("closes at a stop when the market runs through a short strike", () => {
-    const closes = [...Array(5).fill(5000), ...Array.from({ length: 30 }, (_, i) => 5000 - 40 * (i + 1))];
+    const closes = [...Array(5).fill(500), ...Array.from({ length: 30 }, (_, i) => 500 - 4 * (i + 1))];
     const r = simulateCondors(bars(closes), rules({ dte: 30, stopLoss: 2, sizing: "fixed" }));
     expect(r.trades[0].exit).toBe("stop");
     expect(r.trades[0].pnl).toBeLessThan(0);

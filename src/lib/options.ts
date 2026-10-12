@@ -1,4 +1,4 @@
-// Paper-tests S&P 500 iron condors over historical daily data, with either a
+// Paper-tests SPY (S&P 500 ETF) iron condors over historical daily data, with either a
 // fixed size or martingale sizing (double the size after every loss, back to
 // the base size after a win). Real historical option prices aren't free, so
 // each option is priced with Black-Scholes using the VIX as its volatility.
@@ -7,7 +7,7 @@
 // calm years and crashes.
 import { perfStats, type PerfStats } from "./fund-stats";
 
-/** One trading day of the S&P 500 index with that day's VIX close. */
+/** One trading day of SPY with that day's VIX close. */
 export interface IndexBar {
   date: string;
   open: number;
@@ -22,7 +22,7 @@ export interface CondorRules {
   dte: number;
   /** Delta of the short put and short call, e.g. 0.1. */
   shortDelta: number;
-  /** Distance between each short strike and its long wing, in index points. */
+  /** Distance between each short strike and its long wing, in dollars. */
   width: number;
   /** Close early once this share of the credit is kept (0.5 = 50%); null holds to expiry. */
   takeProfit: number | null;
@@ -34,24 +34,24 @@ export interface CondorRules {
   sizing: Sizing;
   /** Martingale only: after this many doublings in a row, give up and reset to the base size. null = never. */
   maxDoublings: number | null;
-  /** Commission per contract per leg, in dollars. */
+  /** Fees per contract per leg, in dollars (commission-free brokers still pass on small regulatory fees). */
   feePerLeg: number;
-  /** Price given up per two-leg spread each time you trade it, in index points. */
+  /** Price given up per two-leg spread each time you trade it, in dollars per share. */
   slippage: number;
 }
 
 export const DEFAULT_RULES: CondorRules = {
   dte: 0,
   shortDelta: 0.1,
-  width: 10,
+  width: 2,
   takeProfit: null,
   stopLoss: null,
   contracts: 1,
   startCash: 25_000,
   sizing: "martingale",
   maxDoublings: null,
-  feePerLeg: 0.65,
-  slippage: 0.05,
+  feePerLeg: 0.04,
+  slippage: 0.01,
 };
 
 export interface Condor {
@@ -100,9 +100,9 @@ export interface CondorResult {
 
 const RATE = 0.03; // flat risk-free rate; small effect on short-dated options
 const YEAR = 252; // trading days
-const STRIKE_STEP = 5;
+const STRIKE_STEP = 1; // SPY strikes are $1 apart
 const MULTIPLIER = 100;
-const MIN_CREDIT = 0.1; // skip days when the condor would pay less than this
+const MIN_CREDIT = 0.05; // skip days when the condor would pay less than this
 // Roughly a quarter of the index's daily price variance is the overnight gap,
 // so a same-day option opened at the open only faces the remaining ~75%.
 const OPEN_TO_CLOSE = 0.75 / YEAR;
@@ -171,11 +171,16 @@ export function buildCondor(spot: number, t: number, vol: number, rules: Pick<Co
   return { ...strikes, credit };
 }
 
-/** Index points per share owed at expiration. */
+/** Dollars per share owed at expiration. */
 export function settlement(c: Omit<Condor, "credit">, spot: number): number {
-  const width = c.putShort - c.putLong;
-  return Math.min(width, Math.max(0, c.putShort - spot)) + Math.min(width, Math.max(0, spot - c.callShort));
+  return (
+    Math.min(c.putShort - c.putLong, Math.max(0, c.putShort - spot)) +
+    Math.min(c.callLong - c.callShort, Math.max(0, spot - c.callShort))
+  );
 }
+
+/** The most a condor can lose per share: its wider wing, less the credit. */
+export const maxLossPerShare = (c: Condor) => Math.max(c.putShort - c.putLong, c.callLong - c.callShort) - c.credit;
 
 // ---------------------------------------------------------------------------
 // Simulation
@@ -194,7 +199,7 @@ function expiryIndex(bars: IndexBar[], i: number, dte: number): number | null {
 }
 
 /** How many contracts to trade next. */
-export function sizeFor(rules: CondorRules, streak: number): { contracts: number; streak: number } {
+export function sizeFor(rules: Pick<CondorRules, "sizing" | "contracts" | "maxDoublings">, streak: number): { contracts: number; streak: number } {
   if (rules.sizing === "fixed") return { contracts: rules.contracts, streak };
   if (rules.maxDoublings !== null && streak > rules.maxDoublings) return { contracts: rules.contracts, streak: 0 };
   return { contracts: rules.contracts * 2 ** streak, streak };
