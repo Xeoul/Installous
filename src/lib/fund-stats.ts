@@ -96,7 +96,8 @@ export function tradeStats(trades: FundTrade[], prices: Map<string, number>, asO
     } else {
       lot.shares -= t.shares;
       lot.proceeds += t.value;
-      if (lot.shares <= 1e-6) {
+      // The log rounds shares to 4 decimals, so a full exit can leave a sliver.
+      if (lot.shares < 0.001) {
         results.push({
           ticker: t.ticker,
           name: lot.name,

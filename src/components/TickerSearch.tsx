@@ -8,7 +8,9 @@ import type { SearchResult as Result } from "@/lib/market";
 export function TickerSearch({ placeholder = "Search stocks…" }: { placeholder?: string }) {
   const router = useRouter();
   const [q, setQ] = useState("");
-  const [results, setResults] = useState<Result[]>([]);
+  // Results remember the query they answer, so Enter never opens a match for
+  // an earlier, shorter query that's still on screen while the next search runs.
+  const [results, setResults] = useState<{ query: string; items: Result[] }>({ query: "", items: [] });
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -20,7 +22,7 @@ export function TickerSearch({ placeholder = "Search stocks…" }: { placeholder
       try {
         const found = await searchTickers(q, ctrl.signal);
         if (!ctrl.signal.aborted) {
-          setResults(found);
+          setResults({ query: q.trim(), items: found });
           setActive(0);
         }
       } catch {
@@ -44,11 +46,11 @@ export function TickerSearch({ placeholder = "Search stocks…" }: { placeholder
   function go(ticker: string) {
     setOpen(false);
     setQ("");
-    setResults([]);
+    setResults({ query: "", items: [] });
     router.push(stockHref(ticker));
   }
 
-  const shown = q.trim() ? results : [];
+  const shown = q.trim() ? results.items : [];
 
   return (
     <div ref={boxRef} className="relative">
@@ -67,7 +69,11 @@ export function TickerSearch({ placeholder = "Search stocks…" }: { placeholder
             e.preventDefault();
             setActive((a) => Math.max(a - 1, 0));
           } else if (e.key === "Enter") {
-            const pick = shown[active]?.ticker ?? q.trim().toUpperCase();
+            const typed = q.trim().toUpperCase();
+            const fresh = results.query === q.trim();
+            const pick = fresh
+              ? (shown[active]?.ticker ?? typed)
+              : (shown.find((r) => r.ticker === typed)?.ticker ?? typed);
             if (pick) go(pick);
           } else if (e.key === "Escape") {
             setOpen(false);

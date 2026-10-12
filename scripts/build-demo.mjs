@@ -26,6 +26,9 @@ try {
   status = result.status ?? 1;
 } finally {
   renameSync(STASH, API);
+  // The build regenerated route types without the API routes; restore them so
+  // typechecking the full app keeps working afterwards.
+  spawnSync("npx", ["next", "typegen"], { stdio: "ignore" });
 }
 
 if (status === 0) {

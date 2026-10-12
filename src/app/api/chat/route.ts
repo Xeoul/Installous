@@ -22,15 +22,29 @@ export async function POST(req: NextRequest) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
-      const emit = (e: AdvisorEvent) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(e)}\n\n`));
+      let open = true;
+      // The browser can disconnect mid-answer; writing after that would throw.
+      const emit = (e: AdvisorEvent) => {
+        if (!open || req.signal.aborted) return;
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(e)}\n\n`));
+        } catch {
+          open = false;
+        }
+      };
       try {
         await runAdvisor(parsed.data.messages, emit, req.signal);
       } catch (err) {
-        if (!req.signal.aborted) emit({ type: "error", message: (err as Error).message });
+        emit({ type: "error", message: (err as Error).message });
       }
-      if (!req.signal.aborted) {
-        emit({ type: "done" });
-        controller.close();
+      emit({ type: "done" });
+      if (open) {
+        open = false;
+        try {
+          controller.close();
+        } catch {
+          // already closed by the client going away
+        }
       }
     },
   });

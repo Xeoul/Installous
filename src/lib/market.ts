@@ -1,19 +1,12 @@
 import "server-only";
 import YahooFinance from "yahoo-finance2";
+import { createCache } from "./cache";
 
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
-// Small in-memory TTL cache so repeated page loads and AI tool calls
-// don't hammer the data provider.
-const cache = new Map<string, { expires: number; value: unknown }>();
-
-async function cached<T>(key: string, ttlMs: number, load: () => Promise<T>): Promise<T> {
-  const hit = cache.get(key);
-  if (hit && hit.expires > Date.now()) return hit.value as T;
-  const value = await load();
-  cache.set(key, { expires: Date.now() + ttlMs, value });
-  return value;
-}
+// Shared so repeated page loads and the advisor's tool calls don't hammer the
+// data provider; see cache.ts.
+const { cached } = createCache();
 
 const MINUTE = 60_000;
 
@@ -66,9 +59,7 @@ export interface Fundamentals {
 }
 
 function num(v: unknown): number | null {
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  if (v instanceof Date) return null;
-  return null;
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
 }
 
 export function normalizeTicker(raw: string): string {
@@ -307,12 +298,15 @@ export async function getNews(rawTicker: string): Promise<NewsItem[]> {
   const ticker = normalizeTicker(rawTicker);
   return cached(`news:${ticker}`, 30 * MINUTE, async () => {
     const res = await yf.search(ticker, { newsCount: 8, quotesCount: 0 });
-    return res.news.map((n) => ({
-      title: n.title,
-      publisher: n.publisher,
-      link: n.link,
-      published: n.providerPublishTime.toISOString(),
-    }));
+    // Skip malformed items instead of failing the whole list over one of them.
+    return res.news
+      .filter((n) => n.title && n.link && n.providerPublishTime instanceof Date && !Number.isNaN(n.providerPublishTime.getTime()))
+      .map((n) => ({
+        title: n.title,
+        publisher: n.publisher ?? "",
+        link: n.link,
+        published: n.providerPublishTime.toISOString(),
+      }));
   });
 }
 

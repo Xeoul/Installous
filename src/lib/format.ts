@@ -1,6 +1,18 @@
+// Yahoo quotes some markets in minor units (London in pence as "GBp", Johannesburg
+// in cents as "ZAc", Tel Aviv in agorot as "ILA"). Intl reads "GBp" as pounds,
+// which would show prices 100x too high, so convert to the main unit first.
+const MINOR_UNITS: Record<string, string> = { GBp: "GBP", GBX: "GBP", ZAc: "ZAR", ILA: "ILS" };
+
 export function money(x: number | null | undefined, currency = "USD"): string {
   if (x === null || x === undefined) return "—";
-  return x.toLocaleString("en-US", { style: "currency", currency, maximumFractionDigits: 2 });
+  const major = MINOR_UNITS[currency];
+  const [value, code] = major ? [x / 100, major] : [x, currency];
+  try {
+    return value.toLocaleString("en-US", { style: "currency", currency: code, maximumFractionDigits: 2 });
+  } catch {
+    // Not a currency code Intl knows; show the number with the code instead of crashing.
+    return `${value.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${code}`;
+  }
 }
 
 export function compact(x: number | null | undefined): string {

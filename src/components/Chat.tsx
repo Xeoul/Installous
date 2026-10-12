@@ -39,7 +39,9 @@ export function Chat({ initialPrompt, compact = false }: { initialPrompt?: strin
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const sentInitial = useRef(false);
-  const loaded = useRef(false);
+  // State, not a ref: saving must wait for a render that has the restored
+  // messages, or it would overwrite the saved conversation with [] first.
+  const [restored, setRestored] = useState(false);
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [keyChecked, setKeyChecked] = useState(!DEMO);
 
@@ -53,17 +55,17 @@ export function Chat({ initialPrompt, compact = false }: { initialPrompt?: strin
       setApiKey(loadApiKey());
       setKeyChecked(true);
     }
-    loaded.current = true;
+    setRestored(true);
   }, [compact]);
 
   useEffect(() => {
-    if (compact || !loaded.current || busy) return;
+    if (compact || !restored || busy) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-40)));
     } catch {
       // storage unavailable; conversation just won't persist
     }
-  }, [messages, busy, compact]);
+  }, [messages, busy, compact, restored]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -121,11 +123,11 @@ export function Chat({ initialPrompt, compact = false }: { initialPrompt?: strin
   const ready = !DEMO || !!apiKey;
 
   useEffect(() => {
-    if (initialPrompt && ready && !sentInitial.current && loaded.current) {
+    if (initialPrompt && ready && !sentInitial.current && restored) {
       sentInitial.current = true;
       void send(initialPrompt, compact ? [] : loadHistory());
     }
-  }, [initialPrompt, send, compact, ready]);
+  }, [initialPrompt, send, compact, ready, restored]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">

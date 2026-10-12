@@ -40,7 +40,8 @@ let writeChain: Promise<unknown> = Promise.resolve();
 export async function readStore(): Promise<Store> {
   try {
     const raw = await fs.readFile(STORE_FILE, "utf8");
-    return { ...DEFAULT_STORE, ...(JSON.parse(raw) as Partial<Store>) };
+    // Clone so a file missing a field never shares (and later mutates) the defaults.
+    return structuredClone({ ...DEFAULT_STORE, ...(JSON.parse(raw) as Partial<Store>) });
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return structuredClone(DEFAULT_STORE);
     throw err;

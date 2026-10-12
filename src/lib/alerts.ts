@@ -53,7 +53,7 @@ function digestWeek(now: Date): string {
 
 /** After Friday's 4pm close, or any time over the weekend, in New York. */
 export function digestDue(now: Date, lastDigestWeek: string | null): boolean {
-  const minutes = Number(ny(now, { hour: "numeric", hour12: false })) * 60 + Number(ny(now, { minute: "numeric" }));
+  const minutes = Number(ny(now, { hour: "numeric", hourCycle: "h23" })) * 60 + Number(ny(now, { minute: "numeric" }));
   const afterClose = isWeekend(now) || (ny(now, { weekday: "short" }) === "Fri" && minutes >= 16 * 60 + 15);
   return afterClose && digestWeek(now) !== lastDigestWeek;
 }

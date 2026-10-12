@@ -29,13 +29,21 @@ export async function POST(req: NextRequest) {
   } catch {
     return errorResponse(new Error(`Unknown ticker: ${parsed.data.ticker}`), 400);
   }
-  await addHolding(parsed.data.ticker, parsed.data.shares, parsed.data.price);
-  return NextResponse.json(await portfolioSnapshot());
+  try {
+    await addHolding(parsed.data.ticker, parsed.data.shares, parsed.data.price);
+    return NextResponse.json(await portfolioSnapshot());
+  } catch (err) {
+    return errorResponse(err);
+  }
 }
 
 export async function DELETE(req: NextRequest) {
   const parsed = removeBody.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return errorResponse(new Error("ticker is required"), 400);
-  await removeHolding(parsed.data.ticker);
-  return NextResponse.json(await portfolioSnapshot());
+  try {
+    await removeHolding(parsed.data.ticker);
+    return NextResponse.json(await portfolioSnapshot());
+  } catch (err) {
+    return errorResponse(err);
+  }
 }

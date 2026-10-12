@@ -54,3 +54,20 @@ describe("tradeStats", () => {
     expect(s.worst).toMatchObject({ ticker: "LOSE", returnPercent: -20, open: false });
   });
 });
+
+describe("tradeStats rounding", () => {
+  it("treats a full exit as closed even when logged shares leave a rounding sliver", () => {
+    const s = tradeStats(
+      [
+        trade("2024-01-01", "X", "buy", 9.3347, 100),
+        trade("2024-01-08", "X", "buy", 1.2346, 100), // logged amounts are rounded to 4 decimals
+        trade("2024-01-15", "X", "sell", 10.5692, 110), // the full position, rounded once
+      ],
+      new Map(),
+      "2024-02-01",
+    );
+    expect(s.closedPositions).toBe(1);
+    expect(s.winRatePercent).toBe(100);
+  });
+});
+

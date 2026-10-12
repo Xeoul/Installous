@@ -10,13 +10,19 @@ const body = z.object({
 });
 
 export async function GET() {
-  const { profile } = await readStore();
-  return NextResponse.json(profile);
+  try {
+    return NextResponse.json((await readStore()).profile);
+  } catch (err) {
+    return errorResponse(err);
+  }
 }
 
 export async function PUT(req: NextRequest) {
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return errorResponse(new Error("Invalid profile"), 400);
-  const store = await setProfile(parsed.data);
-  return NextResponse.json(store.profile);
+  try {
+    return NextResponse.json((await setProfile(parsed.data)).profile);
+  } catch (err) {
+    return errorResponse(err);
+  }
 }
