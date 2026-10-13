@@ -27,7 +27,7 @@ save() {
     git config user.name "github-actions[bot]"
     git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
     git add condor.json
-    [ -f notify.json ] && git add notify.json
+    for f in notify.json notifications.json; do [ -f "$f" ] && git add "$f"; done
     git diff --cached --quiet && exit 0
     git commit -q -m "Update condor bot $(date -u +%Y-%m-%dT%H:%MZ)" || exit 1
     # The deploy workflow also pushes here (other files), so rebase onto it first.
