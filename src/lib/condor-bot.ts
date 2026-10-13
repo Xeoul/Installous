@@ -305,7 +305,9 @@ export function stepBot(prev: BotState | null, input: BotInput): { state: BotSta
 
   // 2. In the last minutes of the session, roll into the next condor.
   const inWindow = minutes >= rules.openFrom && minutes <= rules.openUntil;
-  const openedToday = state.open?.date === today;
+  // One condor a day: never open another once today's is on the books,
+  // whether it's still open, settling or already settled.
+  const openedToday = [state.open, state.settling, state.trades[0]].some((t) => t?.date === today);
   const chain = input.chain;
   if (inWindow && !openedToday && !state.bust && chain?.marketOpen) {
     // The expiring condor's expected result, for sizing: from this roll, or
