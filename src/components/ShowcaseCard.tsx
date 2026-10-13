@@ -1,0 +1,239 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { Change } from "@/components/Change";
+import { LineChart } from "@/components/LineChart";
+import { RollingNumber } from "@/components/RollingNumber";
+import { getCondorBot, getFund } from "@/lib/client-data";
+import type { BotState } from "@/lib/condor-bot";
+import { fmtMonthDay } from "@/lib/dates";
+import { money, signedPct, usd0 } from "@/lib/format";
+import type { FundView } from "@/lib/fund";
+import type { PortfolioSnapshot } from "@/lib/portfolio";
+
+type View = "fund" | "options" | "portfolio";
+const STORAGE_KEY = "installous.showcase";
+
+// The chosen view lives in localStorage; read it as an external store so the
+// server render (AI Fund) and the browser's saved choice reconcile cleanly.
+const viewListeners = new Set<() => void>();
+const subscribeView = (cb: () => void) => {
+  viewListeners.add(cb);
+  return () => void viewListeners.delete(cb);
+};
+function savedView(): View | null {
+  try {
+    const v = localStorage.getItem(STORAGE_KEY);
+    return v === "fund" || v === "options" || v === "portfolio" ? v : null;
+  } catch {
+    return null;
+  }
+}
+function saveView(v: View) {
+  try {
+    localStorage.setItem(STORAGE_KEY, v);
+  } catch {
+    // storage unavailable: the choice lasts until the page reloads
+  }
+  viewListeners.forEach((cb) => cb());
+}
+const compactDollars = (v: number) => `$${(v / 1000).toFixed(Math.abs(v) < 10_000 ? 1 : 0)}k`;
+
+/**
+ * The dashboard's headline card: switch between the AI Fund and the Options
+ * Lab bot (and your own portfolio, once it has holdings) with an iOS-style
+ * segmented control. Remembers the last choice on this device.
+ */
+export function ShowcaseCard({ portfolio }: { portfolio: PortfolioSnapshot | null }) {
+  const saved = useSyncExternalStore(subscribeView, savedView, () => null);
+  const [picked, setPicked] = useState<View | null>(null);
+  const view: View = picked ?? saved ?? "fund";
+  const [fund, setFund] = useState<FundView | null>(null);
+  const [bot, setBot] = useState<BotState | null>(null);
+
+  useEffect(() => {
+    getFund().then(setFund).catch(() => {});
+    getCondorBot().then(setBot).catch(() => {});
+  }, []);
+
+  const hasPortfolio = !!portfolio && portfolio.holdings.length > 0;
+  const shown: View = view === "portfolio" && !hasPortfolio ? "fund" : view;
+  const choose = (v: View) => {
+    setPicked(v);
+    saveView(v);
+  };
+
+  const tabs: { key: View; label: string }[] = [
+    { key: "fund", label: "AI Fund" },
+    { key: "options", label: "Options Lab" },
+    ...(hasPortfolio ? [{ key: "portfolio" as const, label: "My portfolio" }] : []),
+  ];
+
+  return (
+    <section className="rounded-2xl border border-border bg-surface p-4 sm:p-5">
+      <div role="tablist" aria-label="Showcase" className="flex rounded-[10px] bg-surface-2 p-0.5">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            role="tab"
+            type="button"
+            aria-selected={shown === t.key}
+            onClick={() => choose(t.key)}
+            className={`flex-1 rounded-lg px-2 py-1.5 text-[13px] font-semibold transition-colors ${
+              shown === t.key ? "bg-surface text-text shadow-sm" : "text-text-2"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-4">
+        {shown === "fund" ? <FundPanel fund={fund} /> : shown === "options" ? <BotPanel bot={bot} /> : <PortfolioPanel p={portfolio!} />}
+      </div>
+    </section>
+  );
+}
+
+function Headline({ label, value, change, sub }: { label: string; value: number | null; change: ReactNode; sub?: ReactNode }) {
+  return (
+    <div>
+      <div className="text-xs font-medium uppercase tracking-wide text-muted">{label}</div>
+      <div className="mt-1 text-[34px] font-semibold leading-tight tracking-tight">
+        {value === null ? <span className="text-muted">…</span> : <RollingNumber value={money(value)} />}
+      </div>
+      <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-sm">
+        {change}
+        {sub && <span className="text-text-2">{sub}</span>}
+      </div>
+    </div>
+  );
+}
+
+function Stats({ items }: { items: { label: string; value: ReactNode }[] }) {
+  return (
+    <dl className="mt-4 grid grid-cols-3 divide-x divide-border rounded-xl bg-surface-2 py-2.5 text-center">
+      {items.map((s) => (
+        <div key={s.label} className="min-w-0 px-2">
+          <dt className="truncate text-[11px] text-muted">{s.label}</dt>
+          <dd className="num mt-0.5 truncate text-sm font-semibold">{s.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function More({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <Link href={href} className="mt-3 flex items-center justify-end gap-1 text-sm font-medium text-accent">
+      {children}
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.2} aria-hidden>
+        <path d="m9 6 6 6-6 6" />
+      </svg>
+    </Link>
+  );
+}
+
+function MiniChart({ history, series, caption }: { history: { date: string }[]; series: { key: string; label: string; color: string; dash?: string }[]; caption: string }) {
+  if (history.length < 2) return null;
+  return (
+    <div className="mt-3">
+      <LineChart data={history} series={series} formatX={fmtMonthDay} formatY={compactDollars} formatValue={(v) => money(v)} yAxisWidth={44} height={150} caption={caption} />
+    </div>
+  );
+}
+
+function FundPanel({ fund }: { fund: FundView | null }) {
+  if (!fund) return <Headline label="AI Fund · paper money" value={null} change={null} />;
+  const ahead = fund.returnPercent - fund.benchmarkReturnPercent;
+  return (
+    <>
+      <Headline
+        label="AI Fund · paper money"
+        value={fund.equity}
+        change={<Change value={fund.returnPercent} />}
+        sub={`since ${fmtMonthDay(fund.startDate)}`}
+      />
+      <MiniChart
+        history={fund.history}
+        series={[
+          { key: "equity", label: "AI Fund", color: "var(--accent)" },
+          { key: "benchmark", label: "S&P 500", color: "var(--muted)", dash: "5 4" },
+        ]}
+        caption="AI Fund value vs S&P 500 by day"
+      />
+      <Stats
+        items={[
+          { label: "S&P 500", value: signedPct(fund.benchmarkReturnPercent) },
+          { label: ahead >= 0 ? "Ahead by" : "Behind by", value: <span className={ahead >= 0 ? "text-up" : "text-down"}>{Math.abs(ahead).toFixed(2)} pts</span> },
+          { label: "Holdings", value: fund.holdings.length },
+        ]}
+      />
+      <More href="/fund">Holdings &amp; trades</More>
+    </>
+  );
+}
+
+function BotPanel({ bot }: { bot: BotState | null }) {
+  if (!bot) return <Headline label="SPY condor bot · paper money" value={null} change={null} />;
+  const levels = bot.rules.levels ?? [1, 2, 5, 10, 25];
+  const level = bot.open?.level ?? bot.level ?? 0;
+  const wins = bot.trades.filter((t) => (t.pnl ?? 0) >= 0).length;
+  const last = bot.trades[0];
+  return (
+    <>
+      <Headline
+        label="SPY condor bot · paper money"
+        value={bot.equity}
+        change={<Change value={(bot.equity / bot.rules.startCash - 1) * 100} />}
+        sub={`since ${fmtMonthDay(bot.startDate)}`}
+      />
+      {bot.history.length >= 2 ? (
+        <MiniChart history={bot.history} series={[{ key: "equity", label: "Bot account", color: "var(--series-2)" }]} caption="Condor bot account value by day" />
+      ) : (
+        <p className="mt-3 rounded-xl bg-surface-2 px-3 py-2.5 text-sm text-text-2">
+          {bot.open
+            ? `Holding ${bot.open.contracts}× ${bot.open.putShort}/${bot.open.callShort} for ${usd0(bot.open.credit * 100 * bot.open.contracts)}, settles ${fmtMonthDay(bot.open.expiry)}.`
+            : "The chart starts once the first condor settles. The bot trades in the last half hour of each market day."}
+        </p>
+      )}
+      <Stats
+        items={[
+          { label: "Level", value: bot.bust ? "Bust" : `${level + 1} of ${levels.length}` },
+          { label: "Condors", value: bot.trades.length ? `${wins}/${bot.trades.length} won` : "0" },
+          {
+            label: bot.open ? "Open" : "Last",
+            value: bot.open ? (
+              `${bot.open.contracts}× · ${usd0(bot.open.credit * 100 * bot.open.contracts)}`
+            ) : last?.pnl !== undefined ? (
+              <span className={last.pnl >= 0 ? "text-up" : "text-down"}>{`${last.pnl >= 0 ? "+" : "−"}${usd0(Math.abs(last.pnl))}`}</span>
+            ) : (
+              "—"
+            ),
+          },
+        ]}
+      />
+      <More href="/options">Options Lab</More>
+    </>
+  );
+}
+
+function PortfolioPanel({ p }: { p: PortfolioSnapshot }) {
+  // Today's change, weighted by position value.
+  const day = p.holdings.reduce((acc, h) => (h.value === null || h.dayChangePercent === null ? acc : acc + h.value - h.value / (1 + h.dayChangePercent / 100)), 0);
+  const dayPct = p.totalValue - day !== 0 ? (day / (p.totalValue - day)) * 100 : null;
+  return (
+    <>
+      <Headline label="My portfolio" value={p.totalValue} change={<Change value={dayPct} />} sub="today" />
+      <Stats
+        items={[
+          { label: "Today", value: money(day) },
+          { label: "Total gain", value: <span className={p.totalGain >= 0 ? "text-up" : "text-down"}>{money(p.totalGain)}</span> },
+          { label: "Positions", value: p.holdings.length },
+        ]}
+      />
+      <More href="/portfolio">Portfolio</More>
+    </>
+  );
+}
