@@ -1,12 +1,13 @@
 # Runs the SPY condor bot (scripts/condor.ts) through each trading day. One
 # run started any time during the day stays alive until after the close
 # (scripts/condor-session.sh): it steps the bot in the last half hour, where
-# it opens the next condor, and after the official close to settle. GitHub
-# skips scheduled runs when busy (all of them on 2026-10-13), so this has many
-# schedule slots through the day and is also started by the deploy workflow
-# (workflow_dispatch, which GitHub doesn't skip) and by a daily Claude
-# routine. Runs share one concurrency group, so only one steps the bot at a
-# time; one that starts after the close just steps once and exits.
+# it opens the next condor, and after the official close to settle; a run
+# that starts too early hands off to a fresh one before its time limit.
+# GitHub skips scheduled runs when busy (all of them on 2026-10-13), so this
+# has many schedule slots through the day and is also started by the deploy
+# workflow (workflow_dispatch, which GitHub doesn't skip); any one of them
+# covers the day. Runs share one concurrency group, so only one steps the bot
+# at a time; one that starts after the close just steps once and exits.
 # Its state is saved on the fund-data branch; the deploy workflow publishes it.
 name: Condor bot
 
@@ -22,9 +23,14 @@ on:
         description: "New York times to step the bot (HH:MM, space-separated; blank = the usual close times)"
         required: false
         default: ""
+      budget_min:
+        description: "Minutes to wait before handing off to a fresh run (for testing; blank = 335)"
+        required: false
+        default: ""
 
 permissions:
   contents: write # push the bot's state to the fund-data branch
+  actions: write # hand off to a fresh run before the time limit
 
 concurrency:
   group: condor-state
@@ -50,4 +56,6 @@ jobs:
         env:
           FUND_DIR: fund-state
           TIMES: ${{ inputs.times }}
-          BUDGET_MIN: 335
+          BUDGET_MIN: ${{ inputs.budget_min || 335 }}
+          GH_TOKEN: ${{ github.token }}
+          HANDOFF: gh workflow run condor.yml -R ${{ github.repository }} --ref main
