@@ -10,6 +10,9 @@ import type { BotState } from "@/lib/condor-bot";
 import { fmtMonthDay } from "@/lib/dates";
 import { money, signedPct, usd0 } from "@/lib/format";
 import type { FundView } from "@/lib/fund";
+import { MarketHours } from "@/lib/live/pricing";
+import { useLivePrices } from "@/lib/live/useLivePrice";
+import { liveBot, liveFund, livePortfolio, type LivePrices } from "@/lib/live/valuations";
 import type { PortfolioSnapshot } from "@/lib/portfolio";
 
 type View = "fund" | "options" | "portfolio";
@@ -64,6 +67,20 @@ export function ShowcaseCard({ portfolio }: { portfolio: PortfolioSnapshot | nul
     saveView(v);
   };
 
+  // Stream prices for whatever the shown view holds, and re-price it live
+  // (regular-session ticks only, like the watchlist).
+  const tickers =
+    shown === "fund"
+      ? [...(fund?.holdings.map((h) => h.ticker) ?? []), "SPY"]
+      : shown === "options"
+        ? bot?.open || bot?.settling
+          ? ["SPY"]
+          : []
+        : (portfolio?.holdings.map((h) => h.ticker) ?? []);
+  const ticks = useLivePrices(tickers);
+  const prices: LivePrices = {};
+  for (const [t, tick] of Object.entries(ticks)) if (tick.marketHours === MarketHours.Regular) prices[t] = tick.price;
+
   const tabs: { key: View; label: string }[] = [
     { key: "fund", label: "AI Fund" },
     { key: "options", label: "Options Lab" },
@@ -90,16 +107,29 @@ export function ShowcaseCard({ portfolio }: { portfolio: PortfolioSnapshot | nul
       </div>
 
       <div className="mt-4">
-        {shown === "fund" ? <FundPanel fund={fund} /> : shown === "options" ? <BotPanel bot={bot} /> : <PortfolioPanel p={portfolio!} />}
+        {shown === "fund" ? (
+          <FundPanel fund={fund} prices={prices} />
+        ) : shown === "options" ? (
+          <BotPanel bot={bot} prices={prices} />
+        ) : (
+          <PortfolioPanel p={portfolio!} prices={prices} />
+        )}
       </div>
     </section>
   );
 }
 
-function Headline({ label, value, change, sub }: { label: string; value: number | null; change: ReactNode; sub?: ReactNode }) {
+function Headline({ label, value, change, sub, live = false }: { label: string; value: number | null; change: ReactNode; sub?: ReactNode; live?: boolean }) {
   return (
     <div>
-      <div className="text-xs font-medium uppercase tracking-wide text-muted">{label}</div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-xs font-medium uppercase tracking-wide text-muted">{label}</div>
+        {live && (
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-up" title="Updating with live prices">
+            <span className="live-dot" aria-hidden /> Live
+          </span>
+        )}
+      </div>
       <div className="mt-1 text-[34px] font-semibold leading-tight tracking-tight">
         {value === null ? <span className="text-muted">…</span> : <RollingNumber value={money(value)} />}
       </div>
@@ -144,15 +174,17 @@ function MiniChart({ history, series, caption }: { history: { date: string }[]; 
   );
 }
 
-function FundPanel({ fund }: { fund: FundView | null }) {
+function FundPanel({ fund, prices }: { fund: FundView | null; prices: LivePrices }) {
   if (!fund) return <Headline label="AI Fund · paper money" value={null} change={null} />;
-  const ahead = fund.returnPercent - fund.benchmarkReturnPercent;
+  const v = liveFund(fund, prices, prices.SPY);
+  const ahead = v.returnPercent - v.benchmarkReturnPercent;
   return (
     <>
       <Headline
         label="AI Fund · paper money"
-        value={fund.equity}
-        change={<Change value={fund.returnPercent} />}
+        value={v.equity}
+        change={<Change value={v.returnPercent} />}
+        live={v.live}
         sub={`since ${fmtMonthDay(fund.startDate)}`}
       />
       <MiniChart
@@ -165,7 +197,7 @@ function FundPanel({ fund }: { fund: FundView | null }) {
       />
       <Stats
         items={[
-          { label: "S&P 500", value: signedPct(fund.benchmarkReturnPercent) },
+          { label: "S&P 500", value: signedPct(v.benchmarkReturnPercent) },
           { label: ahead >= 0 ? "Ahead by" : "Behind by", value: <span className={ahead >= 0 ? "text-up" : "text-down"}>{Math.abs(ahead).toFixed(2)} pts</span> },
           { label: "Holdings", value: fund.holdings.length },
         ]}
@@ -175,8 +207,10 @@ function FundPanel({ fund }: { fund: FundView | null }) {
   );
 }
 
-function BotPanel({ bot }: { bot: BotState | null }) {
+function BotPanel({ bot, prices }: { bot: BotState | null; prices: LivePrices }) {
   if (!bot) return <Headline label="SPY condor bot · paper money" value={null} change={null} />;
+  // With a condor open, show the account as if it settled at SPY's live price.
+  const v = liveBot(bot, prices.SPY);
   const levels = bot.rules.levels ?? [1, 2, 5, 10, 25];
   const level = bot.open?.level ?? bot.level ?? 0;
   const wins = bot.trades.filter((t) => (t.pnl ?? 0) >= 0).length;
@@ -185,9 +219,10 @@ function BotPanel({ bot }: { bot: BotState | null }) {
     <>
       <Headline
         label="SPY condor bot · paper money"
-        value={bot.equity}
-        change={<Change value={(bot.equity / bot.rules.startCash - 1) * 100} />}
-        sub={`since ${fmtMonthDay(bot.startDate)}`}
+        value={v.equity}
+        change={<Change value={(v.equity / bot.rules.startCash - 1) * 100} />}
+        sub={v.live ? `if settled now · open condor ${v.unsettled >= 0 ? "+" : "−"}${usd0(Math.abs(v.unsettled))}` : `since ${fmtMonthDay(bot.startDate)}`}
+        live={v.live}
       />
       {bot.history.length >= 2 ? (
         <MiniChart history={bot.history} series={[{ key: "equity", label: "Bot account", color: "var(--series-2)" }]} caption="Condor bot account value by day" />
@@ -219,17 +254,15 @@ function BotPanel({ bot }: { bot: BotState | null }) {
   );
 }
 
-function PortfolioPanel({ p }: { p: PortfolioSnapshot }) {
-  // Today's change, weighted by position value.
-  const day = p.holdings.reduce((acc, h) => (h.value === null || h.dayChangePercent === null ? acc : acc + h.value - h.value / (1 + h.dayChangePercent / 100)), 0);
-  const dayPct = p.totalValue - day !== 0 ? (day / (p.totalValue - day)) * 100 : null;
+function PortfolioPanel({ p, prices }: { p: PortfolioSnapshot; prices: LivePrices }) {
+  const v = livePortfolio(p, prices);
   return (
     <>
-      <Headline label="My portfolio" value={p.totalValue} change={<Change value={dayPct} />} sub="today" />
+      <Headline label="My portfolio" value={v.value} change={<Change value={v.dayPercent} />} sub="today" live={v.live} />
       <Stats
         items={[
-          { label: "Today", value: money(day) },
-          { label: "Total gain", value: <span className={p.totalGain >= 0 ? "text-up" : "text-down"}>{money(p.totalGain)}</span> },
+          { label: "Today", value: money(v.day) },
+          { label: "Total gain", value: <span className={v.gain >= 0 ? "text-up" : "text-down"}>{money(v.gain)}</span> },
           { label: "Positions", value: p.holdings.length },
         ]}
       />

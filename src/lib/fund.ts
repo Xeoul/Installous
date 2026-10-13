@@ -265,6 +265,8 @@ export interface FundView {
   returnPercent: number;
   benchmarkValue: number;
   benchmarkReturnPercent: number;
+  /** SPY's price on the start date, so the S&P 500 line can be re-priced live (absent in older views). */
+  benchmarkStartPrice?: number;
   lastRebalance: string | null;
   nextRebalance: string | null;
   holdings: FundHoldingView[];
@@ -311,6 +313,7 @@ export function fundView(s: FundState, picks: Pick[]): FundView {
     returnPercent: round((equity / s.startCash - 1) * 100),
     benchmarkValue: last?.benchmark ?? s.startCash,
     benchmarkReturnPercent: round(((last?.benchmark ?? s.startCash) / s.startCash - 1) * 100),
+    benchmarkStartPrice: s.benchmarkStartPrice,
     lastRebalance: s.lastRebalance,
     nextRebalance: next,
     holdings,
