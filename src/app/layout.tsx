@@ -34,11 +34,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col pt-[env(safe-area-inset-top)]">
-        {/* Installed on a phone, the page draws under the status bar; keep that strip solid. */}
-        <div aria-hidden className="fixed inset-x-0 top-0 z-30 h-[env(safe-area-inset-top)] bg-bg" />
-        <DemoBanner />
+      <body className="min-h-full flex flex-col">
+        {/* The header comes first: installed on a phone it extends up under the status bar. */}
         <Nav />
+        <DemoBanner />
         <main className="mx-auto w-full max-w-6xl flex-1 px-[max(1rem,env(safe-area-inset-left))] py-5 sm:py-6">
           {/* Navigations are transitions, so the page crossfades instead of swapping (see globals.css). */}
           <ViewTransition name="page">{children}</ViewTransition>

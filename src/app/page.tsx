@@ -2,16 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Card, Stat } from "@/components/Card";
+import { Card } from "@/components/Card";
 import { Change } from "@/components/Change";
 import { RollingNumber } from "@/components/RollingNumber";
 import { ScoreBadge } from "@/components/ScoreBadge";
+import { ShowcaseCard } from "@/components/ShowcaseCard";
 import { Sparkline } from "@/components/Sparkline";
 import type { ChartData } from "@/lib/chart";
-import { fmtMonthDay } from "@/lib/dates";
-import { getFund, getPicks, getPortfolio, getSparklines, getWatchlist, stockHref } from "@/lib/client-data";
+import { getPicks, getPortfolio, getSparklines, getWatchlist, stockHref } from "@/lib/client-data";
 import { money } from "@/lib/format";
-import type { FundView } from "@/lib/fund";
 import { MarketHours } from "@/lib/live/pricing";
 import { useLivePrices } from "@/lib/live/useLivePrice";
 import type { Quote } from "@/lib/market";
@@ -23,7 +22,6 @@ export default function Dashboard() {
   const [picks, setPicks] = useState<Pick[] | null>(null);
   const [sparks, setSparks] = useState<Record<string, ChartData>>({});
   const live = useLivePrices(watchlist?.map((q) => q.ticker) ?? []);
-  const [fund, setFund] = useState<FundView | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -35,26 +33,14 @@ export default function Dashboard() {
       })
       .catch((e) => setError(e.message));
     getPicks().then(setPicks).catch((e) => setError(e.message));
-    // The fund is optional on the dashboard; skip the card if it can't load.
-    getFund().then(setFund).catch(() => {});
   }, []);
-
-  // Today's portfolio change, weighted by position value.
-  const dayChange = portfolio?.holdings.reduce((acc, h) => {
-    if (h.value === null || h.dayChangePercent === null) return acc;
-    return acc + h.value - h.value / (1 + h.dayChangePercent / 100);
-  }, 0);
-  const dayChangePct =
-    portfolio && dayChange !== undefined && portfolio.totalValue > 0
-      ? (dayChange / (portfolio.totalValue - dayChange)) * 100
-      : null;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Good {greeting()}</h1>
-          <p className="text-text-2">Here&apos;s your portfolio and today&apos;s highest-ranked ideas.</p>
+          <p className="text-text-2">The AI Fund, the options bot and today&apos;s highest-ranked ideas.</p>
         </div>
         <Link href="/advisor" className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white">
           Ask your AI advisor →
@@ -63,40 +49,7 @@ export default function Dashboard() {
 
       {error && <div className="rounded-lg border border-down/40 bg-down/10 px-3 py-2 text-sm text-down">⚠ {error}</div>}
 
-      <div className="grid grid-cols-2 gap-3 *:first:col-span-2 sm:grid-cols-3 sm:gap-4 sm:*:first:col-span-1">
-        <Stat label="Portfolio value" value={portfolio ? money(portfolio.totalValue) : "…"} />
-        <Stat
-          label="Today"
-          value={portfolio ? money(dayChange ?? 0) : "…"}
-          sub={portfolio && portfolio.holdings.length > 0 ? <Change value={dayChangePct} /> : null}
-        />
-        <Stat
-          label="Total gain / loss"
-          value={portfolio ? money(portfolio.totalGain) : "…"}
-          sub={portfolio && portfolio.holdings.length > 0 ? <Change value={portfolio.totalGainPercent} /> : null}
-        />
-      </div>
-      {portfolio && portfolio.holdings.length === 0 && (
-        <p className="text-sm text-text-2">
-          No holdings yet. <Link href="/portfolio" className="text-accent underline">Add your positions</Link> so Installous can
-          tailor its advice.
-        </p>
-      )}
-
-      {fund && (
-        <Link
-          href="/fund"
-          className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl border border-border bg-surface px-5 py-3 text-sm hover:border-accent"
-        >
-          <span className="font-semibold">AI Fund</span>
-          <span className="text-text-2">
-            Rules-only paper portfolio: <Change value={fund.returnPercent} /> vs S&amp;P 500{" "}
-            <Change value={fund.benchmarkReturnPercent} /> since{" "}
-            {fmtMonthDay(fund.startDate)}
-          </span>
-          <span className="ml-auto text-accent">See holdings &amp; trades →</span>
-        </Link>
-      )}
+      <ShowcaseCard portfolio={portfolio} />
 
       <div className="grid gap-6 lg:grid-cols-5">
         <Card
