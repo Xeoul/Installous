@@ -9,11 +9,10 @@ import { Backtest, TrackRecord } from "@/components/FundSections";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import type { BacktestView } from "@/lib/backtest";
 import { getBacktest, getFund, stockHref } from "@/lib/client-data";
+import { fmtDate } from "@/lib/dates";
 import { money, signedPct } from "@/lib/format";
 import type { FundView } from "@/lib/fund";
 
-const fmtDate = (d: string) =>
-  new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 
 export default function FundPage() {
   const [fund, setFund] = useState<FundView | null>(null);
@@ -66,7 +65,7 @@ export default function FundPage() {
         )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Stat label="Fund value" value={fund ? money(fund.equity) : "…"} sub={fund ? <Change value={fund.returnPercent} /> : null} />
         <Stat
           label="S&P 500 (same start)"

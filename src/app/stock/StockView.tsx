@@ -1,9 +1,10 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/Card";
-import { Chat } from "@/components/Chat";
 import { EventsCard } from "@/components/EventsCard";
 import { FactorBars } from "@/components/FactorBars";
 import { StockChart } from "@/components/StockChart";
@@ -18,6 +19,11 @@ import {
 } from "@/lib/client-data";
 import { compact, fixed, money, ratioPct } from "@/lib/format";
 import type { NewsItem } from "@/lib/market";
+
+// The AI chat (and its markdown renderer) only loads once you ask for an analysis.
+const Chat = dynamic(() => import("@/components/Chat").then((m) => m.Chat), {
+  loading: () => <div className="h-full animate-pulse rounded-lg bg-surface-2" />,
+});
 
 export function StockView({ ticker }: { ticker: string }) {
   const [data, setData] = useState<StockData | null>(null);
@@ -85,6 +91,7 @@ export function StockView({ ticker }: { ticker: string }) {
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <section className="lg:col-span-2">
+          <BackButton />
           <div className="mb-1 flex flex-wrap items-baseline gap-x-3">
             <h1 className="text-2xl font-semibold">{f?.name ?? ticker}</h1>
             <span className="text-sm font-medium text-text-2">{ticker}</span>
@@ -184,5 +191,25 @@ export function StockView({ ticker }: { ticker: string }) {
         </Card>
       </div>
     </div>
+  );
+}
+
+/**
+ * Phones only: installed to the home screen there's no browser back button, so
+ * stock pages get their own, like a pushed screen in an iOS app.
+ */
+function BackButton() {
+  const router = useRouter();
+  return (
+    <button
+      type="button"
+      onClick={() => (window.history.length > 1 ? router.back() : router.push("/"))}
+      className="-ml-1.5 mb-2 flex items-center gap-0.5 text-[15px] text-accent sm:hidden"
+    >
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="m15 5-7 7 7 7" />
+      </svg>
+      Back
+    </button>
   );
 }

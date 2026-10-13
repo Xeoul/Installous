@@ -15,7 +15,7 @@ export async function scoreTicker(ticker: string): Promise<ScoredStock> {
 }
 
 /** Score many tickers with bounded concurrency; tickers that fail to load are skipped. */
-export async function scoreMany(tickers: string[], concurrency = 6): Promise<ScoredStock[]> {
+async function scoreMany(tickers: string[], concurrency = 6): Promise<ScoredStock[]> {
   const queue = [...new Set(tickers)];
   const results: ScoredStock[] = [];
   async function worker() {

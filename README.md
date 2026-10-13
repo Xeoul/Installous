@@ -15,7 +15,7 @@ scoring model, and a Claude-powered AI analyst that knows your portfolio and inv
   measured against the S&P 500, with every trade and its reason logged.
 - **Compare**: up to 4 stocks side by side, with performance from the same starting point and scores and metrics in one table.
 - **Earnings & dividends** on every stock page: the next earnings date and estimates, the last four quarters' beats and misses, and yearly dividend history.
-- **Installable**: add it to your phone's home screen and it opens full-screen like an app.
+- **Built like a phone app**: add it to your home screen and it opens full-screen, with a bottom tab bar, a "More" sheet, safe-area spacing for the notch and home indicator, quick page crossfades (React `<ViewTransition>`), press feedback, and no zoom-on-focus. Pages load about 180-190 KB of gzipped JavaScript: charts are plain SVG (no chart library), the AI chat and its markdown renderer load only when used, and recent data is cached in memory so going back is instant.
 - **Alerts**: the demo workflow opens a GitHub issue assigned to you (which GitHub emails) when the AI Fund trades, plus a weekly digest after Friday's close.
 - **Portfolio**: track positions with average cost, live value, gain/loss, and weight.
 - **Profile**: set your risk tolerance, time horizon, and goals. The advisor uses them in every answer.

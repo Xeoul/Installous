@@ -1,14 +1,10 @@
 "use client";
 
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { fmtMonthDay, fmtMonthYear } from "@/lib/dates";
 import { money } from "@/lib/format";
+import { LineChart, type LineSeries } from "./LineChart";
 
-export interface ChartSeries {
-  key: string;
-  label: string;
-  color: string;
-  dash?: string;
-}
+export type ChartSeries = LineSeries;
 
 /** The fund vs the S&P 500 (dashed and muted, since it's the reference line). */
 export const FUND_SERIES: ChartSeries[] = [
@@ -16,25 +12,10 @@ export const FUND_SERIES: ChartSeries[] = [
   { key: "benchmark", label: "S&P 500 (SPY)", color: "var(--muted)", dash: "5 4" },
 ];
 
-// Recharts formats every point's date to lay out the axis, on every render, so
-// reuse one formatter per style and cache the labels.
-function dateFormatter(opts: Intl.DateTimeFormatOptions) {
-  const f = new Intl.DateTimeFormat("en-US", { ...opts, timeZone: "UTC" });
-  const cache = new Map<string, string>();
-  return (d: string) => {
-    let label = cache.get(d);
-    if (label === undefined) {
-      label = f.format(new Date(`${d}T12:00:00Z`));
-      cache.set(d, label);
-    }
-    return label;
-  };
-}
-const fmtMonthDay = dateFormatter({ month: "short", day: "numeric" });
-const fmtMonthYear = dateFormatter({ month: "short", year: "numeric" });
-const fmtMedium = dateFormatter({ dateStyle: "medium" });
+const thousands = (v: number) => `$${(v / 1000).toFixed(v !== 0 && Math.abs(v) < 10_000 ? 1 : 0)}k`;
+const dollars = (v: number) => `$${Math.round(v).toLocaleString("en-US")}`;
 
-/** Value-over-time chart on one dollar axis, with a legend, hover values and a screen-reader table. */
+/** Value-over-time chart on one dollar axis, with a legend, scrubbable values and a screen-reader table. */
 export function FundChart({
   history,
   series = FUND_SERIES,
@@ -49,8 +30,6 @@ export function FundChart({
   /** Label the value axis in whole dollars, for values that move by less than $1k. */
   fineAxis?: boolean;
 }) {
-  const fmtDate = longRange ? fmtMonthYear : fmtMonthDay;
-
   if (history.length < 2) {
     return (
       <div className="grid h-64 place-items-center rounded-lg bg-surface-2 px-6 text-center text-sm text-text-2">
@@ -58,8 +37,7 @@ export function FundChart({
       </div>
     );
   }
-  const last = history[history.length - 1] as unknown as Record<string, number>;
-  const labelOf = new Map(series.map((s) => [s.key, s.label]));
+  const last = history[history.length - 1] as Record<string, unknown>;
   return (
     <div>
       <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-2" aria-hidden>
@@ -72,81 +50,15 @@ export function FundChart({
           </span>
         ))}
       </div>
-      <div className="h-64 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={history} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-            <CartesianGrid stroke="var(--grid)" vertical={false} />
-            <XAxis
-              dataKey="date"
-              tickFormatter={fmtDate}
-              tick={{ fill: "var(--muted)", fontSize: 11 }}
-              tickLine={false}
-              axisLine={{ stroke: "var(--border)" }}
-              minTickGap={40}
-            />
-            <YAxis
-              domain={["auto", "auto"]}
-              tickFormatter={(v: number) => (fineAxis ? `$${Math.round(v).toLocaleString("en-US")}` : `$${(v / 1000).toFixed(0)}k`)}
-              tick={{ fill: "var(--muted)", fontSize: 11 }}
-              tickLine={false}
-              axisLine={false}
-              width={fineAxis ? 64 : 48}
-            />
-            <Tooltip
-              cursor={{ stroke: "var(--muted)", strokeDasharray: "3 3" }}
-              contentStyle={{
-                background: "var(--surface)",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                color: "var(--text)",
-                fontSize: 12,
-              }}
-              labelFormatter={(d) =>
-                fmtMedium(String(d))
-              }
-              formatter={(v, name) => [money(Number(v)), labelOf.get(String(name)) ?? String(name)]}
-            />
-            {/* Reference lines first so the fund draws on top. */}
-            {[...series].reverse().map((s) => (
-              <Line
-                key={s.key}
-                type="monotone"
-                dataKey={s.key}
-                stroke={s.color}
-                strokeWidth={2}
-                strokeDasharray={s.dash}
-                dot={false}
-                activeDot={{ r: 4, stroke: "var(--surface)", strokeWidth: 2 }}
-                isAnimationActive={false}
-              />
-            ))}
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-      {/* Tables ignore sr-only's 1px width, so the wrapper does the hiding. */}
-      <div className="sr-only">
-      <table>
-        <caption>{caption}</caption>
-        <thead>
-          <tr>
-            <th>Date</th>
-            {series.map((s) => (
-              <th key={s.key}>{s.label}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {history.map((p) => (
-            <tr key={p.date}>
-              <td>{p.date}</td>
-              {series.map((s) => (
-                <td key={s.key}>{money(Number((p as unknown as Record<string, number>)[s.key]))}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      </div>
+      <LineChart
+        data={history}
+        series={series}
+        formatX={longRange ? fmtMonthYear : fmtMonthDay}
+        formatY={fineAxis ? dollars : thousands}
+        formatValue={(v) => money(v)}
+        yAxisWidth={fineAxis ? 64 : 48}
+        caption={caption}
+      />
     </div>
   );
 }

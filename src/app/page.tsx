@@ -8,6 +8,7 @@ import { RollingNumber } from "@/components/RollingNumber";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { Sparkline } from "@/components/Sparkline";
 import type { ChartData } from "@/lib/chart";
+import { fmtMonthDay } from "@/lib/dates";
 import { getFund, getPicks, getPortfolio, getSparklines, getWatchlist, stockHref } from "@/lib/client-data";
 import { money } from "@/lib/format";
 import type { FundView } from "@/lib/fund";
@@ -62,7 +63,7 @@ export default function Dashboard() {
 
       {error && <div className="rounded-lg border border-down/40 bg-down/10 px-3 py-2 text-sm text-down">⚠ {error}</div>}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 *:first:col-span-2 sm:grid-cols-3 sm:gap-4 sm:*:first:col-span-1">
         <Stat label="Portfolio value" value={portfolio ? money(portfolio.totalValue) : "…"} />
         <Stat
           label="Today"
@@ -91,7 +92,7 @@ export default function Dashboard() {
           <span className="text-text-2">
             Rules-only paper portfolio: <Change value={fund.returnPercent} /> vs S&amp;P 500{" "}
             <Change value={fund.benchmarkReturnPercent} /> since{" "}
-            {new Date(`${fund.startDate}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
+            {fmtMonthDay(fund.startDate)}
           </span>
           <span className="ml-auto text-accent">See holdings &amp; trades →</span>
         </Link>

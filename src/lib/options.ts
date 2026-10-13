@@ -16,6 +16,39 @@ export interface IndexBar {
   vix: number;
 }
 
+/**
+ * IndexBar[] in a compact, columnar form for the wire: about a third the size
+ * as JSON (dates become day gaps from the first bar).
+ */
+export interface PackedBars {
+  start: string;
+  gaps: number[];
+  open: number[];
+  close: number[];
+  vix: number[];
+}
+
+const DAY_MS = 86_400_000;
+
+export function packBars(bars: IndexBar[]): PackedBars {
+  const ms = bars.map((b) => Date.parse(`${b.date}T00:00:00Z`));
+  return {
+    start: bars[0]?.date ?? "",
+    gaps: ms.map((t, i) => (i === 0 ? 0 : Math.round((t - ms[i - 1]) / DAY_MS))),
+    open: bars.map((b) => b.open),
+    close: bars.map((b) => b.close),
+    vix: bars.map((b) => b.vix),
+  };
+}
+
+export function unpackBars(p: PackedBars): IndexBar[] {
+  let t = Date.parse(`${p.start}T00:00:00Z`);
+  return p.gaps.map((gap, i) => {
+    t += gap * DAY_MS;
+    return { date: new Date(t).toISOString().slice(0, 10), open: p.open[i], close: p.close[i], vix: p.vix[i] };
+  });
+}
+
 export type Sizing = "fixed" | "martingale";
 
 export interface CondorRules {
@@ -174,7 +207,7 @@ function strikeForDelta(kind: "call" | "put", spot: number, delta: number, t: nu
 }
 
 /** What it costs to buy the condor back (per share, before slippage). */
-export function condorValue(c: Omit<Condor, "credit">, spot: number, t: number, vol: number): number {
+function condorValue(c: Omit<Condor, "credit">, spot: number, t: number, vol: number): number {
   const puts = bsPrice("put", spot, c.putShort, t, vol) - bsPrice("put", spot, c.putLong, t, vol);
   const calls = bsPrice("call", spot, c.callShort, t, vol) - bsPrice("call", spot, c.callLong, t, vol);
   return Math.max(0, puts) + Math.max(0, calls);

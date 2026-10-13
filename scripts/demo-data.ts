@@ -6,6 +6,7 @@ import { mkdir, rm, writeFile } from "fs/promises";
 import path from "path";
 import { DEFAULT_WATCHLIST } from "../src/lib/defaults";
 import { getEvents, getHistory, getIndexBars, getNews, getQuotes, HISTORY_RANGES, type PriceHistory, type SearchResult } from "../src/lib/market";
+import { packBars } from "../src/lib/options";
 import { scoreTicker, type ScoredStock } from "../src/lib/picks";
 import { toPick } from "../src/lib/portfolio";
 import { DEFAULT_UNIVERSE } from "../src/lib/universe";
@@ -112,7 +113,7 @@ async function main() {
 
   // The Options Lab simulates in the browser from these daily bars.
   try {
-    await write("options.json", await withRetry("index bars", () => getIndexBars()));
+    await write("options.json", packBars(await withRetry("index bars", () => getIndexBars())));
   } catch (err) {
     console.warn(`  skipped options data: ${(err as Error).message}`);
   }

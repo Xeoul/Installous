@@ -1,11 +1,15 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { forgetApiKey, loadApiKey, saveApiKey, streamFromServer, streamInBrowser } from "@/lib/advisor-client";
 import type { AdvisorEvent } from "@/lib/advisor-core";
 import { DEMO } from "@/lib/client-data";
+
+// The markdown renderer loads with the first answer, not with the page.
+const Markdown = dynamic(() => import("./Markdown").then((m) => m.Markdown), {
+  loading: () => null,
+});
 
 interface Msg {
   role: "user" | "assistant";
@@ -75,6 +79,8 @@ export function Chat({ initialPrompt, compact = false }: { initialPrompt?: strin
     async (text: string, prior: Msg[]) => {
       const content = text.trim();
       if (!content) return;
+      // Start loading the markdown renderer now, so it's ready by the first words of the answer.
+      void import("./Markdown");
       const history: Msg[] = [...prior, { role: "user", content }];
       setMessages([...history, { role: "assistant", content: "", steps: [] }]);
       setInput("");
@@ -178,7 +184,7 @@ export function Chat({ initialPrompt, compact = false }: { initialPrompt?: strin
               )}
               {m.content ? (
                 <div className="prose-installous text-sm">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                  <Markdown>{m.content}</Markdown>
                 </div>
               ) : (
                 busy && i === messages.length - 1 && !m.error && <div className="text-sm text-muted animate-pulse">Researching…</div>
@@ -208,7 +214,7 @@ export function Chat({ initialPrompt, compact = false }: { initialPrompt?: strin
             }
           }}
           rows={1}
-          placeholder="Ask about any stock, your portfolio, or what to buy…"
+          placeholder="Ask about stocks or your portfolio…"
           className="min-h-10 flex-1 resize-none rounded-xl border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
         />
         {busy ? (

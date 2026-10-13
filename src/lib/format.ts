@@ -30,6 +30,16 @@ export function money(x: number | null | undefined, currency = "USD"): string {
   return f ? f.format(value) : `${plainFormat.format(value)} ${code}`;
 }
 
+/** Whole dollars: "$1,235". */
+export function usd0(x: number): string {
+  return money(Math.round(x)).replace(".00", "");
+}
+
+/** Whole dollars with a sign: "+$200", "−$199". */
+export function signedUsd0(x: number): string {
+  return `${x >= 0 ? "+" : "−"}${usd0(Math.abs(x))}`;
+}
+
 export function compact(x: number | null | undefined): string {
   if (x === null || x === undefined) return "—";
   return x.toLocaleString("en-US", { notation: "compact", maximumFractionDigits: 2 });

@@ -27,10 +27,10 @@ export function DemoBanner() {
 
   if (!DEMO) return null;
   return (
-    <div className="border-b border-border bg-surface-2 px-4 py-2 text-center text-xs text-text-2">
+    <div className="border-b border-border bg-surface-2 px-4 py-1.5 text-center text-xs text-text-2">
       <strong className="font-semibold text-text">Live demo</strong>
-      {" · "}Market data {asOf ? `as of ${asOf}` : "snapshot"}, refreshed every 30 min during market hours
-      {" · "}Your portfolio and watchlist stay in this browser
+      {" · "}Data {asOf ? `as of ${asOf}` : "snapshot"}
+      <span className="hidden sm:inline">, refreshed every 30 min during market hours · Your portfolio and watchlist stay in this browser</span>
       {" · "}
       <a href="https://github.com/Xeoul/Installous" target="_blank" rel="noreferrer" className="underline hover:text-text">
         Source

@@ -16,9 +16,9 @@ export function Card({ title, action, children, className = "" }: { title?: Reac
 
 export function Stat({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-border bg-surface p-4">
+    <div className="min-w-0 rounded-2xl border border-border bg-surface p-3.5 sm:p-4">
       <div className="text-xs text-muted">{label}</div>
-      <div className="num mt-1 text-2xl font-semibold">{value}</div>
+      <div className="num mt-1 truncate text-xl font-semibold sm:text-2xl">{value}</div>
       {sub && <div className="mt-1 text-sm">{sub}</div>}
     </div>
   );

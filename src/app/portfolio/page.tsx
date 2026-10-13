@@ -72,7 +72,7 @@ function PortfolioView() {
         )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 *:first:col-span-2 sm:grid-cols-3 sm:gap-4 sm:*:first:col-span-1">
         <Stat label="Market value" value={data ? money(data.totalValue) : "…"} />
         <Stat label="Cost basis" value={data ? money(data.totalCost) : "…"} />
         <Stat label="Total gain / loss" value={data ? money(data.totalGain) : "…"} sub={has ? <Change value={data.totalGainPercent} /> : null} />

@@ -4,16 +4,13 @@ import { useEffect, useState } from "react";
 import { Change } from "@/components/Change";
 import { FundChart } from "@/components/FundChart";
 import { getCondorBot } from "@/lib/client-data";
-import { nyDate, type BotState, type BotTrade } from "@/lib/condor-bot";
-import { money } from "@/lib/format";
+import type { BotState, BotTrade } from "@/lib/condor-bot";
+import { fmtWeekday as fmtDate, nyDate } from "@/lib/dates";
+import { signedUsd0 as signed, usd0 } from "@/lib/format";
 import { useLivePrice } from "@/lib/live/useLivePrice";
 import { upcomingNews } from "@/lib/news-days";
 import { settlement } from "@/lib/options";
 
-const fmtDate = (d: string) =>
-  new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
-const usd0 = (x: number) => money(Math.round(x)).replace(".00", "");
-const signed = (x: number) => `${x >= 0 ? "+" : "−"}${usd0(Math.abs(x))}`;
 const strikes = (t: BotTrade) => `${t.putLong}/${t.putShort}p · ${t.callShort}/${t.callLong}c`;
 const DEFAULT_LEVELS = [1, 2, 5, 10, 25];
 

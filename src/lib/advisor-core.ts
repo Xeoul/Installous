@@ -8,7 +8,7 @@ import type { Pick, PortfolioSnapshot } from "./portfolio";
 import type { StockScore } from "./scoring";
 import type { InvestorProfile } from "./store";
 
-export const DEFAULT_ADVISOR_MODEL = "claude-opus-5";
+const DEFAULT_ADVISOR_MODEL = "claude-opus-5";
 
 export type AdvisorEvent =
   | { type: "text"; text: string }
