@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "startDate": "2026-10-12",
   "rules": {
     "ticker": "SPY",
@@ -7,14 +7,20 @@
     "evenMoney": true,
     "shortDelta": 0.1,
     "width": 4,
-    "contracts": 1,
+    "levels": [
+      1,
+      2,
+      5,
+      10,
+      25
+    ],
     "startCash": 25000,
-    "maxDoublings": null,
     "feePerLeg": 0.04,
     "slippage": 0.01,
-    "openFrom": 585,
-    "openUntil": 930,
-    "minCredit": 0.05
+    "openFrom": 925,
+    "openUntil": 958,
+    "minCredit": 1.5,
+    "skipNews": true
   },
   "equity": 25000,
   "streak": 0,
@@ -28,5 +34,7 @@
     }
   ],
   "note": null,
-  "updatedAt": "2026-10-13T05:54:45.130Z"
+  "updatedAt": "2026-10-13T06:18:02.181Z",
+  "level": 0,
+  "settling": null
 }
