@@ -2,15 +2,15 @@
 # with a fresh market-data snapshot, and advances the AI Fund, whose state is
 # saved on the fund-data branch (the SPY condor bot has its own workflow,
 # condor.yml; this one publishes its latest state). Runs on every push to
-# main, every 30 minutes while US markets are open, and once a day for
-# weekend news.
+# main, every 30 minutes while US markets are open (off the crowded :00 and
+# :30 minutes, which GitHub often drops), and once a day for weekend news.
 name: Deploy demo
 
 on:
   push:
     branches: [main]
   schedule:
-    - cron: "*/30 13-21 * * 1-5"
+    - cron: "11,41 13-21 * * 1-5"
     - cron: "7 12 * * *"
   workflow_dispatch:
 
@@ -19,6 +19,7 @@ permissions:
   issues: write # open alert issues
   pages: write
   id-token: write
+  actions: write # start the condor bot near the close
 
 jobs:
   build:
@@ -51,6 +52,16 @@ jobs:
           FUND_DIR: fund-state
       - name: Publish the condor bot's state
         run: cp fund-state/condor.json public/demo-data/condor.json 2>/dev/null || echo "No condor bot state yet"
+      # Backs up the condor bot's own schedule, which GitHub may skip: in the
+      # last half hour of the session, start a bot run too.
+      - name: Start the condor bot near the close
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          now=$(TZ=America/New_York date +%u%H%M)
+          day=${now:0:1}; hm=$((10#${now:1}))
+          if [ "$day" -le 5 ] && [ "$hm" -ge 1525 ] && [ "$hm" -le 1554 ]; then gh workflow run condor.yml --ref main; fi
       - name: Check for alerts
         run: npm run alerts
         env:

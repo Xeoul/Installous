@@ -1,16 +1,21 @@
 # Steps the SPY condor bot (scripts/condor.ts). It trades in the last half hour
-# of the session, so it runs on its own small workflow at 3:30, 3:40 and
-# 3:50pm New York time (two sets of UTC times cover daylight saving and
-# standard time; the bot checks the New York clock itself) and again after
-# the close to settle at the official close. Its state is saved on the
-# fund-data branch; the deploy workflow publishes it to the site.
+# of the session, so it runs on its own small workflow every few minutes from
+# 3:26 to 3:56pm New York time (two sets of UTC times cover daylight saving and
+# standard time; the bot checks the New York clock itself), after the close to
+# settle at the official close, and the next morning to settle anything a
+# missed run left open. GitHub drops many scheduled runs when it is busy (on
+# 2026-10-13 none of these fired), so there are plenty of slots, off the
+# crowded :00 and :30 minutes, and the deploy workflow also starts this one
+# during the window. Extra runs are harmless: the bot opens one condor a day.
+# Its state is saved on the fund-data branch; the deploy workflow publishes it.
 name: Condor bot
 
 on:
   schedule:
-    - cron: "30,40,50 19 * * 1-5" # 3:30-3:50pm EDT
-    - cron: "30,40,50 20 * * 1-5" # 3:30-3:50pm EST / after the close in EDT
-    - cron: "20 21 * * 1-5" # after the close in EST
+    - cron: "26,29,32,35,38,41,44,47,50,53,56 19 * * 1-5" # 3:26-3:56pm EDT
+    - cron: "26,29,32,35,38,41,44,47,50,53,56 20 * * 1-5" # 3:26-3:56pm EST / after the close in EDT
+    - cron: "19,27,37,49 21 * * 1-5" # after the close in EST
+    - cron: "13,43 14 * * 1-5" # next morning: settle anything left open
   workflow_dispatch:
 
 permissions:
