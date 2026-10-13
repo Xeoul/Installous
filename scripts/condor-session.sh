@@ -6,10 +6,15 @@
 # clock) and steps it again: a few times in the last half hour, where it
 # opens the next condor, and once after the official close to settle.
 # The bot itself decides what to do at each step; extra steps are harmless.
+# A run that starts too early to reach the close (jobs are limited to six
+# hours) waits as long as it can, then starts a fresh run of this workflow
+# to take over (workflow_dispatch, which GitHub doesn't skip), so a single
+# run starting any time from the morning on covers the whole day.
 #
 #   FUND_DIR     checkout of the fund-data branch holding condor.json
 #   TIMES        space-separated HH:MM New York times (default below)
 #   BUDGET_MIN   stop waiting after this many minutes (the job's limit is 360)
+#   HANDOFF      when set, the command that starts the successor run
 set -uo pipefail
 
 TIMES=${TIMES:-"15:27 15:35 15:43 15:51 16:20"}
@@ -46,7 +51,13 @@ for t in $TIMES; do
   now=$(date +%s)
   [ "$at" -gt "$now" ] || continue
   if [ "$at" -gt "$deadline" ]; then
-    echo "Started too early to wait for $t; a later run takes over."
+    if [ -n "${HANDOFF:-}" ]; then
+      echo "Too early to wait for $t; handing off to a fresh run in $((deadline - now))s"
+      [ "$deadline" -gt "$now" ] && sleep $((deadline - now))
+      eval "$HANDOFF" || { echo "::error::Couldn't start the successor run"; exit 1; }
+    else
+      echo "Started too early to wait for $t; a later run takes over."
+    fi
     break
   fi
   echo "Waiting until $t New York time ($((at - now))s)"
