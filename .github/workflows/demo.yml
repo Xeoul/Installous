@@ -19,7 +19,7 @@ permissions:
   issues: write # open alert issues
   pages: write
   id-token: write
-  actions: write # start the condor bot near the close
+  actions: write # start the condor bot for the close
 
 jobs:
   build:
@@ -52,16 +52,19 @@ jobs:
           FUND_DIR: fund-state
       - name: Publish the condor bot's state
         run: cp fund-state/condor.json public/demo-data/condor.json 2>/dev/null || echo "No condor bot state yet"
-      # Backs up the condor bot's own schedule, which GitHub may skip: in the
-      # last half hour of the session, start a bot run too.
-      - name: Start the condor bot near the close
+      # Backs up the condor bot's own schedule, which GitHub may skip: from
+      # late morning to the close, start a bot run that stays up through the
+      # close if one isn't already running.
+      - name: Start the condor bot for the close
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           now=$(TZ=America/New_York date +%u%H%M)
           day=${now:0:1}; hm=$((10#${now:1}))
-          if [ "$day" -le 5 ] && [ "$hm" -ge 1525 ] && [ "$hm" -le 1554 ]; then gh workflow run condor.yml --ref main; fi
+          [ "$day" -le 5 ] && [ "$hm" -ge 1050 ] && [ "$hm" -le 1550 ] || exit 0
+          running=$(gh run list -R "$GITHUB_REPOSITORY" --workflow condor.yml --status in_progress --json databaseId -q length)
+          [ "$running" = 0 ] && gh workflow run condor.yml -R "$GITHUB_REPOSITORY" --ref main || echo "Condor bot already running"
       - name: Check for alerts
         run: npm run alerts
         env:

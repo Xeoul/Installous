@@ -1,22 +1,27 @@
-# Steps the SPY condor bot (scripts/condor.ts). It trades in the last half hour
-# of the session, so it runs on its own small workflow every few minutes from
-# 3:26 to 3:56pm New York time (two sets of UTC times cover daylight saving and
-# standard time; the bot checks the New York clock itself), after the close to
-# settle at the official close, and the next morning to settle anything a
-# missed run left open. GitHub drops many scheduled runs when it is busy (on
-# 2026-10-13 none of these fired), so there are plenty of slots, off the
-# crowded :00 and :30 minutes, and the deploy workflow also starts this one
-# during the window. Extra runs are harmless: the bot opens one condor a day.
+# Runs the SPY condor bot (scripts/condor.ts) through each trading day. One
+# run started any time during the day stays alive until after the close
+# (scripts/condor-session.sh): it steps the bot in the last half hour, where
+# it opens the next condor, and after the official close to settle. GitHub
+# skips scheduled runs when busy (all of them on 2026-10-13), so this has many
+# schedule slots through the day and is also started by the deploy workflow
+# (workflow_dispatch, which GitHub doesn't skip) and by a daily Claude
+# routine. Runs share one concurrency group, so only one steps the bot at a
+# time; one that starts after the close just steps once and exits.
 # Its state is saved on the fund-data branch; the deploy workflow publishes it.
 name: Condor bot
 
 on:
   schedule:
-    - cron: "26,29,32,35,38,41,44,47,50,53,56 19 * * 1-5" # 3:26-3:56pm EDT
-    - cron: "26,29,32,35,38,41,44,47,50,53,56 20 * * 1-5" # 3:26-3:56pm EST / after the close in EDT
-    - cron: "19,27,37,49 21 * * 1-5" # after the close in EST
-    - cron: "13,43 14 * * 1-5" # next morning: settle anything left open
+    # Every 20 minutes, 13:07-21:47 UTC (about 8am-5:45pm New York time in
+    # either daylight saving or standard time; the script reads the New York
+    # clock itself).
+    - cron: "7,27,47 13-21 * * 1-5"
   workflow_dispatch:
+    inputs:
+      times:
+        description: "New York times to step the bot (HH:MM, space-separated; blank = the usual close times)"
+        required: false
+        default: ""
 
 permissions:
   contents: write # push the bot's state to the fund-data branch
@@ -28,7 +33,7 @@ concurrency:
 jobs:
   step:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -40,18 +45,9 @@ jobs:
         with:
           ref: fund-data
           path: fund-state
-      - name: Step the bot
-        run: npm run condor
+      - name: Run the bot through the close
+        run: scripts/condor-session.sh
         env:
           FUND_DIR: fund-state
-      - name: Save the bot's state
-        working-directory: fund-state
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
-          git add condor.json
-          git diff --cached --quiet && exit 0
-          git commit -q -m "Update condor bot $(date -u +%Y-%m-%dT%H:%MZ)"
-          # The deploy workflow also pushes here (other files), so rebase onto it first.
-          for i in 1 2 3; do git pull -q --rebase && git push -q && exit 0; sleep 5; done
-          exit 1
+          TIMES: ${{ inputs.times }}
+          BUDGET_MIN: 335
