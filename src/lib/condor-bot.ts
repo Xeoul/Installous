@@ -1,11 +1,16 @@
-// A live paper-trading bot: it sells a SPY iron condor at real quoted prices,
-// holds it to expiration (the next trading day by default), settles it at
-// SPY's official close, and sizes each trade by the martingale (double after
-// a loss, back to the base size after a win). One trade at a time, so each
-// size follows the last result. The scheduled workflow calls stepBot every
-// 30 minutes during market hours; the state is saved on the fund-data branch
-// like the AI Fund's.
-import { maxLossPerShare, normCdf, settlement, sizeFor } from "./options";
+// A live paper-trading bot for SPY iron condors, run the way the strategy is
+// traded by hand: in the last minutes of each trading day, check whether the
+// condor expiring today is a win or a loss, set the next size from the level
+// ladder (a loss moves up a level, any win goes back to level 1), and open the
+// next condor expiring the next trading day. Each condor is held to expiration
+// and settled at SPY's official close. It skips days when a big release (Fed
+// decision, CPI, jobs report) lands while the condor would be open.
+//
+// Fills use real (possibly delayed) Yahoo Finance quotes. The condor workflow
+// runs stepBot a few times in the last half hour of the session and after the
+// close; the state is saved on the fund-data branch.
+import { newsOn, NEWS_CALENDAR_ENDS } from "./news-days";
+import { maxLossPerShare, normCdf, settlement } from "./options";
 
 export interface BotRules {
   ticker: string;
@@ -17,17 +22,19 @@ export interface BotRules {
   shortDelta: number;
   /** Dollars between each short strike and its long wing. */
   width: number;
-  contracts: number;
+  /** Contracts at each level; a loss on the last level starts over at the first. */
+  levels: number[];
   startCash: number;
-  maxDoublings: number | null;
   feePerLeg: number;
   /** Given up per two-leg spread vs the mid price, in dollars per share. */
   slippage: number;
-  /** New York time window for opening the day's trade, minutes after midnight. */
+  /** New York time window for opening the next condor, minutes after midnight. */
   openFrom: number;
   openUntil: number;
   /** Skip the day if the condor pays less than this per share. */
   minCredit: number;
+  /** Don't hold a condor through a Fed decision, CPI or jobs report. */
+  skipNews: boolean;
 }
 
 export const BOT_RULES: BotRules = {
@@ -37,14 +44,14 @@ export const BOT_RULES: BotRules = {
   shortDelta: 0.1,
   // $4 wings with ~$2 credit: about +$200 on a win, -$200 on a full loss, per condor.
   width: 4,
-  contracts: 1,
+  levels: [1, 2, 5, 10, 25],
   startCash: 25_000,
-  maxDoublings: null,
   feePerLeg: 0.04,
   slippage: 0.01,
-  openFrom: 9 * 60 + 45,
-  openUntil: 15 * 60 + 30,
-  minCredit: 0.05,
+  openFrom: 15 * 60 + 25,
+  openUntil: 15 * 60 + 58,
+  minCredit: 1.5,
+  skipNews: true,
 };
 
 export interface ChainLeg {
@@ -77,8 +84,13 @@ export interface BotTrade {
   /** Credit per share after slippage. */
   credit: number;
   contracts: number;
-  streak: number;
+  /** Level index (0 = level 1) this trade was sized at. */
+  level: number;
+  /** Losses in a row before this trade (kept for older trades' display). */
+  streak?: number;
   capped: boolean;
+  /** Set when the next trade was sized from this one's result shortly before its close. */
+  rolled?: { at: string; spot: number; pnl: number };
   /** Filled in when the trade settles. */
   close?: number;
   pnl?: number;
@@ -86,13 +98,19 @@ export interface BotTrade {
 }
 
 export interface BotState {
-  version: 2;
+  version: 3;
   startDate: string;
   rules: BotRules;
   equity: number;
+  /** Level index the next trade will use (0 = level 1). */
+  level: number;
+  /** Losses in a row. */
   streak: number;
   bust: string | null;
+  /** The newest open condor. */
   open: BotTrade | null;
+  /** The previous condor, expiring today, after the next one was opened (until its official close). */
+  settling: BotTrade | null;
   /** Settled trades, newest first. */
   trades: BotTrade[];
   history: { date: string; equity: number }[];
@@ -211,13 +229,15 @@ export function condorFromChain(chain: Chain, rules: BotRules) {
 
 export function newBotState(now: Date, rules: BotRules = BOT_RULES): BotState {
   return {
-    version: 2,
+    version: 3,
     startDate: nyDate(now),
     rules,
     equity: rules.startCash,
+    level: 0,
     streak: 0,
     bust: null,
     open: null,
+    settling: null,
     trades: [],
     history: [{ date: nyDate(now), equity: rules.startCash }],
     note: null,
@@ -225,64 +245,104 @@ export function newBotState(now: Date, rules: BotRules = BOT_RULES): BotState {
   };
 }
 
-/** Advance the bot: settle a finished trade, then open today's if it's time. */
+/** The level after a result: any win goes back to level 1, a loss moves up (past the top, start over). */
+export const nextLevel = (level: number, pnl: number, levels: number[]) => (pnl >= 0 || level + 1 >= levels.length ? 0 : level + 1);
+
+/** P/L of a condor settling at `price`, after fees. */
+export function pnlAt(t: Pick<BotTrade, "putLong" | "putShort" | "callShort" | "callLong" | "credit" | "contracts">, price: number, feePerLeg: number) {
+  return Math.round(((t.credit - settlement(t, price)) * MULTIPLIER * t.contracts - fees({ feePerLeg } as BotRules, t.contracts)) * 100) / 100;
+}
+
+const fmtDay = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+
+/** Bring a saved state from an earlier version onto the current rules. */
+function upgrade(state: BotState): BotState {
+  const v = state.version as number;
+  if (v === 3) return state;
+  const legacy = state as unknown as { open?: BotTrade | null; streak?: number };
+  return {
+    ...state,
+    version: 3,
+    rules: BOT_RULES,
+    level: 0,
+    streak: legacy.streak ?? 0,
+    open: legacy.open ? { ...legacy.open, expiry: legacy.open.expiry ?? legacy.open.date, level: 0 } : null,
+    settling: null,
+  };
+}
+
+/** Advance the bot: settle at the official close, then (late in the session) roll into the next condor. */
 export function stepBot(prev: BotState | null, input: BotInput): { state: BotState; events: string[] } {
-  const state: BotState = prev ? structuredClone(prev) : newBotState(input.now);
-  // Version 1 traded same-day 10-delta condors; carry the account over to the current rules.
-  if ((state.version as number) !== 2) {
-    state.version = 2;
-    state.rules = BOT_RULES;
-  }
+  const state = upgrade(prev ? structuredClone(prev) : newBotState(input.now));
   const rules = state.rules;
   const events: string[] = [];
   const today = nyDate(input.now);
   const minutes = nyMinutes(input.now);
 
-  // 1. Settle at the official close on the expiration day. (During that
-  // session Yahoo's daily "close" is just the latest price, so wait for 4:15.)
-  const open = state.open;
-  const expiry = open ? (open.expiry ?? open.date) : "";
-  const close = open ? input.closes[expiry] : undefined;
-  if (open && close !== undefined && (expiry < today || (expiry === today && minutes >= CLOSE_FINAL))) {
-    const owed = settlement(open, close);
-    const pnl = Math.round(((open.credit - owed) * MULTIPLIER * open.contracts - fees(rules, open.contracts)) * 100) / 100;
+  // 1. Settle condors at the official close on their expiration day. (During
+  // that session Yahoo's daily "close" is just the latest price, so wait for 4:15.)
+  for (const slot of ["settling", "open"] as const) {
+    const t = state[slot];
+    const close = t ? input.closes[t.expiry] : undefined;
+    if (!t || close === undefined || !(t.expiry < today || (t.expiry === today && minutes >= CLOSE_FINAL))) continue;
+    const pnl = pnlAt(t, close, rules.feePerLeg);
     state.equity = Math.round((state.equity + pnl) * 100) / 100;
-    state.streak = pnl < 0 ? state.streak + 1 : 0;
-    state.trades.unshift({ ...open, expiry, close, pnl, equityAfter: state.equity });
-    state.open = null;
+    // A rolled trade already set the next level from its result near the close.
+    if (!t.rolled) {
+      state.level = nextLevel(state.level, pnl, rules.levels);
+      state.streak = pnl < 0 ? state.streak + 1 : 0;
+    }
+    state.trades.unshift({ ...t, close, pnl, equityAfter: state.equity });
+    state[slot] = null;
     const last = state.history.at(-1);
-    if (last?.date === expiry) last.equity = state.equity;
-    else state.history.push({ date: expiry, equity: state.equity });
-    events.push(`Settled ${expiry}: SPY closed ${close}, ${pnl >= 0 ? "kept" : "lost"} $${Math.abs(pnl).toFixed(2)} on ${open.contracts}×`);
+    if (last?.date === t.expiry) last.equity = state.equity;
+    else state.history.push({ date: t.expiry, equity: state.equity });
+    events.push(`Settled ${t.expiry}: SPY closed ${close}, ${pnl >= 0 ? "kept" : "lost"} $${Math.abs(pnl).toFixed(2)} on ${t.contracts}×`);
   }
 
-  // 2. Open the next trade (one at a time, so a trade that settles today means the next opens tomorrow).
-  const tradedToday = state.open?.date === today || state.trades[0]?.date === today || state.trades[0]?.expiry === today;
+  // 2. In the last minutes of the session, roll into the next condor.
   const inWindow = minutes >= rules.openFrom && minutes <= rules.openUntil;
-  if (!state.open && !state.bust && !tradedToday && inWindow) {
-    const chain = input.chain;
-    const rightExpiry = chain && (rules.expiryDays === 0 ? chain.expiry === today : chain.expiry > today);
-    if (!chain || !rightExpiry) {
+  const openedToday = state.open?.date === today;
+  const chain = input.chain;
+  if (inWindow && !openedToday && !state.bust && chain?.marketOpen) {
+    let projected = 0;
+    if (state.open && state.open.expiry === today) {
+      // Today's condor is all but settled: size the next one from where SPY is now.
+      projected = pnlAt(state.open, chain.spot, rules.feePerLeg);
+      state.level = nextLevel(state.level, projected, rules.levels);
+      state.streak = projected < 0 ? state.streak + 1 : 0;
+      state.settling = { ...state.open, rolled: { at: input.now.toISOString(), spot: chain.spot, pnl: projected } };
+      state.open = null;
+      events.push(`Rolled ${today}: SPY ${chain.spot}, projected ${projected >= 0 ? "+" : "-"}$${Math.abs(projected).toFixed(0)} → level ${state.level + 1}`);
+    }
+
+    const news = rules.skipNews ? newsOn(chain.expiry) : [];
+    const rightExpiry = rules.expiryDays === 0 ? chain.expiry === today : chain.expiry > today;
+    if (state.open) {
+      state.note = null; // still holding an earlier condor (it expires later), so wait
+    } else if (!rightExpiry) {
       state.note = rules.expiryDays === 0 ? "No same-day options to trade." : "No next-day options to trade.";
-    } else if (!chain.marketOpen) {
-      state.note = "The market isn't open.";
+    } else if (news.length) {
+      state.note = `Skipped: ${news.join(" and ")} on ${fmtDay(chain.expiry)}, while the condor would be open.`;
+      events.push(state.note);
     } else {
       const condor = condorFromChain(chain, rules);
       if (!condor) {
         state.note = "Couldn't find quoted strikes for the condor.";
       } else if (condor.credit < rules.minCredit) {
-        state.note = `Skipped: the condor paid only $${(condor.credit * MULTIPLIER).toFixed(0)}.`;
+        state.note = `Skipped: the condor paid only $${(condor.credit * MULTIPLIER).toFixed(0)} (minimum $${(rules.minCredit * MULTIPLIER).toFixed(0)}).`;
+        events.push(state.note);
       } else {
-        const sizing = sizeFor({ ...rules, sizing: "martingale" }, state.streak);
-        state.streak = sizing.streak;
+        const wanted = rules.levels[state.level] ?? rules.levels[0];
         const margin = maxLossPerShare(condor) * MULTIPLIER + fees(rules, 1);
-        const affordable = Math.floor(state.equity / margin);
+        // Cash after today's condor settles, roughly.
+        const affordable = Math.floor((state.equity + projected) / margin);
         if (affordable < 1) {
           state.bust = today;
           state.note = "Bust: the account can't cover one more condor.";
           events.push(state.note);
         } else {
-          const contracts = Math.min(sizing.contracts, affordable);
+          const contracts = Math.min(wanted, affordable);
           state.open = {
             date: today,
             expiry: chain.expiry,
@@ -290,18 +350,22 @@ export function stepBot(prev: BotState | null, input: BotInput): { state: BotSta
             spot: chain.spot,
             ...condor,
             contracts,
+            level: state.level,
             streak: state.streak,
-            capped: contracts < sizing.contracts,
+            capped: contracts < wanted,
           };
           state.note = null;
           events.push(
-            `Opened ${today} (expires ${chain.expiry}): ${condor.putLong}/${condor.putShort}p ${condor.callShort}/${condor.callLong}c for $${(condor.credit * MULTIPLIER).toFixed(0)} × ${contracts}`,
+            `Opened ${today} (expires ${chain.expiry}) at level ${state.level + 1}: ${condor.putLong}/${condor.putShort}p ${condor.callShort}/${condor.callLong}c for $${(condor.credit * MULTIPLIER).toFixed(0)} × ${contracts}`,
           );
         }
       }
     }
+  } else if (inWindow && !openedToday && chain && !chain.marketOpen) {
+    state.note = "The market isn't open.";
   }
 
+  if (today > NEWS_CALENDAR_ENDS && rules.skipNews) state.note = `${state.note ?? ""} The news calendar ends ${NEWS_CALENDAR_ENDS}; add next year's dates.`.trim();
   state.updatedAt = input.now.toISOString();
   return { state, events };
 }

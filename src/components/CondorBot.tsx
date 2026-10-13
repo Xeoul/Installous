@@ -4,17 +4,20 @@ import { useEffect, useState } from "react";
 import { Change } from "@/components/Change";
 import { FundChart } from "@/components/FundChart";
 import { getCondorBot } from "@/lib/client-data";
-import type { BotState, BotTrade } from "@/lib/condor-bot";
+import { nyDate, type BotState, type BotTrade } from "@/lib/condor-bot";
 import { money } from "@/lib/format";
 import { useLivePrice } from "@/lib/live/useLivePrice";
-import { settlement, sizeFor } from "@/lib/options";
+import { upcomingNews } from "@/lib/news-days";
+import { settlement } from "@/lib/options";
 
 const fmtDate = (d: string) =>
   new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
 const usd0 = (x: number) => money(Math.round(x)).replace(".00", "");
+const signed = (x: number) => `${x >= 0 ? "+" : "−"}${usd0(Math.abs(x))}`;
 const strikes = (t: BotTrade) => `${t.putLong}/${t.putShort}p · ${t.callShort}/${t.callLong}c`;
+const DEFAULT_LEVELS = [1, 2, 5, 10, 25];
 
-/** The live paper bot: one martingale-sized SPY iron condor at a time, held to expiration. */
+/** The live paper bot: SPY iron condors held to the next day's close, sized by the level ladder. */
 export function CondorBot() {
   const [bot, setBot] = useState<BotState | null>(null);
   const [error, setError] = useState(false);
@@ -26,21 +29,32 @@ export function CondorBot() {
   }, []);
 
   const r = bot?.rules;
-  const size = (streak: number) => (r ? sizeFor({ ...r, sizing: "martingale" }, streak).contracts : 0);
+  // Older published states predate the level ladder.
+  const levels = r?.levels ?? DEFAULT_LEVELS;
+  const level = bot?.level ?? 0;
+  // Size after the open condor settles: back to level 1 on a win, up a level on a loss (past the top, start over).
+  const openLevel = bot?.open?.level ?? level;
+  const afterLoss = openLevel + 1 >= levels.length ? levels[0] : levels[openLevel + 1];
   const wins = bot?.trades.filter((t) => (t.pnl ?? 0) >= 0).length ?? 0;
-  // While a trade is open, show what it would pay if SPY settled at the live price,
+  // While a condor is open, show what it would pay if SPY settled at the live price,
   // the way you'd check it in the last minutes before the close.
-  const live = useLivePrice(bot?.open && !bot.bust ? bot.rules.ticker : null);
-  const now = bot?.open && live && r ? projected(bot.open, live.price, r.feePerLeg) : null;
+  const watching = bot?.settling ?? bot?.open ?? null;
+  const live = useLivePrice(watching && !bot?.bust ? (r?.ticker ?? "SPY") : null);
+  const now = watching && live && r ? projected(watching, live.price, r.feePerLeg) : null;
+  const skips = upcomingNews(nyDate(new Date()), 3);
 
   return (
     <section className="rounded-2xl border border-border bg-surface p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-text-2">
-          {bot?.open && !bot.bust && <span className="live-dot" aria-hidden />}
+          {watching && !bot?.bust && <span className="live-dot" aria-hidden />}
           Live SPY martingale bot
         </h2>
-        {bot && <span className="text-xs text-muted">Started {fmtDate(bot.startDate)} · updated {new Date(bot.updatedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}</span>}
+        {bot && (
+          <span className="text-xs text-muted">
+            Started {fmtDate(bot.startDate)} · updated {new Date(bot.updatedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
+          </span>
+        )}
       </div>
 
       {error ? (
@@ -52,98 +66,113 @@ export function CondorBot() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Tile label="Account" value={usd0(bot.equity)} sub={<Change value={(bot.equity / r.startCash - 1) * 100} />} />
             <Tile
-              label={bot.open ? "Open trade" : "Last trade"}
+              label={bot.open ? "Open condor" : "Last condor"}
               value={
                 bot.open
                   ? `${bot.open.contracts}× for ${usd0(bot.open.credit * 100 * bot.open.contracts)}`
                   : bot.trades[0]
-                    ? `${bot.trades[0].pnl! >= 0 ? "+" : "−"}${usd0(Math.abs(bot.trades[0].pnl!))}`
+                    ? signed(bot.trades[0].pnl!)
                     : "None yet"
               }
               sub={
                 bot.open ? (
                   <span className="text-text-2">
-                    {strikes(bot.open)} · settles {fmtDate(bot.open.expiry ?? bot.open.date)} at 4:00pm ET
+                    {strikes(bot.open)} · settles {fmtDate(bot.open.expiry)} at 4:00pm ET
                   </span>
                 ) : bot.trades[0] ? (
                   <span className="text-text-2">
                     {fmtDate(bot.trades[0].expiry ?? bot.trades[0].date)} · SPY closed {bot.trades[0].close?.toFixed(2)}
                   </span>
                 ) : (
-                  <span className="text-text-2">Opens after 9:45am ET on market days</span>
+                  <span className="text-text-2">Opens in the last half hour of a market day</span>
                 )
               }
             />
             <Tile
-              label="Losses in a row"
-              value={bot.bust ? "Bust" : String(bot.streak)}
+              label="Level"
+              value={bot.bust ? "Bust" : `${(bot.open ? openLevel : level) + 1} of ${levels.length}`}
               sub={
                 bot.bust ? (
                   <span className="text-down">Stopped {fmtDate(bot.bust)}</span>
                 ) : (
                   <span className="text-text-2">
                     {bot.open
-                      ? `Next: ${r.contracts}× after a win, ${size(bot.open.streak + 1)}× after a loss`
-                      : `Next trade: ${size(bot.streak)}×`}
+                      ? `Next: ${levels[0]}× after a win, ${afterLoss}× after a loss`
+                      : `Next condor: ${levels[level]}×`}{" "}
+                    · ladder {levels.join("·")}
                   </span>
                 )
               }
             />
             <Tile
-              label="Trades"
+              label="Condors"
               value={String(bot.trades.length)}
-              sub={<span className="text-text-2">{bot.trades.length ? `${Math.round((wins / bot.trades.length) * 100)}% won` : "No settled trades yet"}</span>}
+              sub={<span className="text-text-2">{bot.trades.length ? `${Math.round((wins / bot.trades.length) * 100)}% won` : "None settled yet"}</span>}
             />
           </div>
 
-          {now && live && (
+          {now && live && watching && (
             <p className="num mt-3 flex flex-wrap items-baseline gap-x-2 text-sm text-text-2" aria-live="polite">
               <span className="live-dot" aria-hidden />
-              If SPY settled now at {live.price.toFixed(2)}:
-              <span className={`font-semibold ${now.pnl >= 0 ? "text-up" : "text-down"}`}>
-                {now.pnl >= 0 ? "+" : "−"}
-                {usd0(Math.abs(now.pnl))}
-              </span>
+              {bot.settling ? `Condor expiring ${fmtDate(watching.expiry)}, if` : "If"} SPY settled now at {live.price.toFixed(2)}:
+              <span className={`font-semibold ${now.pnl >= 0 ? "text-up" : "text-down"}`}>{signed(now.pnl)}</span>
               <span>· {now.label}</span>
+            </p>
+          )}
+
+          {bot.settling?.rolled && (
+            <p className="mt-2 text-xs text-text-2">
+              The condor expiring {fmtDate(bot.settling.expiry)} looked like {signed(bot.settling.rolled.pnl)} with SPY at{" "}
+              {bot.settling.rolled.spot.toFixed(2)} near the close, so the next one opened at level {(bot.open?.level ?? level) + 1}. It
+              settles at the official close.
             </p>
           )}
 
           {bot.note && !bot.open && <p className="mt-3 text-sm text-text-2">{bot.note}</p>}
 
+          {r.skipNews !== false && skips.length > 0 && (
+            <p className="mt-2 text-xs text-muted">
+              Won&apos;t hold a condor through:{" "}
+              {skips.map((s) => `${fmtDate(s.date)} (${s.kinds.join(", ")})`).join(" · ")}
+            </p>
+          )}
+
           {bot.history.length >= 2 && (
             <div className="mt-5">
-              <FundChart history={bot.history} series={[{ key: "equity", label: "Bot account", color: "var(--series-2)" }]} caption="Bot account value by day" fineAxis />
+              <FundChart
+                history={bot.history}
+                series={[{ key: "equity", label: "Bot account", color: "var(--series-2)" }]}
+                caption="Bot account value by day"
+                fineAxis
+              />
             </div>
           )}
 
           {bot.trades.length > 0 && (
             <ul className="mt-4 divide-y divide-border text-sm">
               {bot.trades.slice(0, 10).map((t) => (
-                <li key={t.date} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-2">
+                <li key={`${t.date}-${t.expiry}`} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-2">
                   <span className="flex-1 text-xs text-muted sm:w-24 sm:flex-none">{fmtDate(t.expiry ?? t.date)}</span>
                   <span className="num order-last w-full text-xs text-text-2 sm:order-none sm:w-auto sm:min-w-0 sm:flex-1">
                     {strikes(t)} · SPY {t.spot.toFixed(2)} → {t.close?.toFixed(2)}
                   </span>
-                  <span className={`num w-10 text-right ${t.streak ? "font-semibold text-warn" : ""}`}>{t.contracts}×</span>
-                  <span className={`num w-20 text-right ${t.pnl! >= 0 ? "text-up" : "text-down"}`}>
-                    {t.pnl! >= 0 ? "+" : "−"}
-                    {usd0(Math.abs(t.pnl!))}
+                  <span className={`num w-24 text-right text-xs ${(t.level ?? 0) > 0 ? "font-semibold text-warn" : "text-text-2"}`}>
+                    L{(t.level ?? 0) + 1} · {t.contracts}×
                   </span>
+                  <span className={`num w-20 text-right ${t.pnl! >= 0 ? "text-up" : "text-down"}`}>{signed(t.pnl!)}</span>
                 </li>
               ))}
             </ul>
           )}
 
           <p className="mt-4 text-xs text-muted">
-            After 9:45am ET it sells a SPY iron condor expiring {r.expiryDays === 0 ? "the same day" : "the next trading day"} with ${r.width}{" "}
-            wings,{" "}
-            {r.evenMoney
-              ? `short strikes placed so it collects about $${(r.width * 50).toFixed(0)}: a win pays about what a full loss costs`
-              : `short strikes nearest ${Math.round(r.shortDelta * 100)} delta`}
-            . It fills at the quoted mid less ${r.slippage.toFixed(2)} per spread (Yahoo Finance quotes, which can be delayed), holds to
-            expiration, and settles at the 4:00pm close. One trade at a time, so the next opens the morning after one settles. It starts
-            with {usd0(r.startCash)}, trades {r.contracts} contract after a win and doubles after every loss
-            {r.maxDoublings === null ? " with no limit" : `, up to ${r.maxDoublings} times`}. Paper money only.
+            In the last half hour of each market day it checks whether the condor expiring today is a win or a loss, sets the next
+            size from the ladder ({levels.join(", ")} contracts: a loss moves up a level, any win goes back to level 1, and a loss on
+            level {levels.length} starts over), then sells a SPY iron condor expiring the next trading day with ${r.width} wings
+            {r.evenMoney ? `, short strikes placed so it collects about $${(r.width * 50).toFixed(0)}` : ""}. It skips a day if the
+            condor pays under ${((r.minCredit ?? 0) * 100).toFixed(0)}, or if a Fed decision, CPI or jobs report lands while it would be
+            open. Fills use the quoted mid less ${r.slippage.toFixed(2)} per spread (Yahoo Finance quotes, which can be delayed), and
+            each condor settles at the 4:00pm close. Starts with {usd0(r.startCash)}. Paper money only.
           </p>
         </>
       )}

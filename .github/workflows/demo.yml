@@ -1,7 +1,8 @@
 # Publishes the static demo to GitHub Pages (https://xeoul.github.io/Installous/)
-# with a fresh market-data snapshot, and advances the AI Fund and the SPY
-# condor bot, whose state is saved on the fund-data branch. Runs on every push
-# to main, every 30 minutes while US markets are open, and once a day for
+# with a fresh market-data snapshot, and advances the AI Fund, whose state is
+# saved on the fund-data branch (the SPY condor bot has its own workflow,
+# condor.yml; this one publishes its latest state). Runs on every push to
+# main, every 30 minutes while US markets are open, and once a day for
 # weekend news.
 name: Deploy demo
 
@@ -48,12 +49,8 @@ jobs:
         run: npm run fund
         env:
           FUND_DIR: fund-state
-      - name: Run the SPY condor bot
-        continue-on-error: true # a bad options feed shouldn't stop the site from deploying
-        # If this run can't step the bot, still publish its last saved state.
-        run: npm run condor || cp fund-state/condor.json public/demo-data/condor.json
-        env:
-          FUND_DIR: fund-state
+      - name: Publish the condor bot's state
+        run: cp fund-state/condor.json public/demo-data/condor.json 2>/dev/null || echo "No condor bot state yet"
       - name: Check for alerts
         run: npm run alerts
         env:
@@ -77,8 +74,12 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git diff --cached --quiet || { git commit -q -m "Update AI Fund and condor bot $(date -u +%Y-%m-%dT%H:%MZ)" && git push -q; }
+          git add fund.json alerts.json
+          git diff --cached --quiet && exit 0
+          git commit -q -m "Update AI Fund $(date -u +%Y-%m-%dT%H:%MZ)"
+          # The condor workflow also pushes here (other files), so rebase onto it first.
+          for i in 1 2 3; do git pull -q --rebase && git push -q && exit 0; sleep 5; done
+          exit 1
       - name: Build static site
         run: npm run build:demo
         env:
