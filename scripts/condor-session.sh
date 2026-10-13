@@ -18,9 +18,11 @@ deadline=$(($(date +%s) + ${BUDGET_MIN:-330} * 60))
 save() {
   (
     cd "$FUND_DIR" || exit 1
+    git config user.name "github-actions[bot]"
+    git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
     git add condor.json
     git diff --cached --quiet && exit 0
-    git commit -q -m "Update condor bot $(date -u +%Y-%m-%dT%H:%MZ)"
+    git commit -q -m "Update condor bot $(date -u +%Y-%m-%dT%H:%MZ)" || exit 1
     # The deploy workflow also pushes here (other files), so rebase onto it first.
     for _ in 1 2 3 4 5; do git pull -q --rebase && git push -q && exit 0; sleep 5; done
     exit 1
