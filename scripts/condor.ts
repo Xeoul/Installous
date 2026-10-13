@@ -1,7 +1,7 @@
 // Advance the SPY condor bot one step: settle its trade at the official close
 // on the expiration day, and open the next iron condor at real quotes once
-// the market has been open a few minutes. The deploy workflow runs this
-// every 30 minutes during market hours.
+// in the last half hour of the session. scripts/condor-session.sh runs this
+// several times a day from the condor workflow.
 //
 //   FUND_DIR   where condor.json (the bot's state) lives; the workflow points
 //              this at a checkout of the `fund-data` branch.
