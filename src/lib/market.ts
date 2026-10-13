@@ -1,6 +1,7 @@
 import "server-only";
 import YahooFinance from "yahoo-finance2";
 import { createCache } from "./cache";
+import { nyDate } from "./dates";
 import type { Chain } from "./condor-bot";
 import type { IndexBar } from "./options";
 
@@ -348,11 +349,10 @@ export async function getIndexBars(): Promise<IndexBar[]> {
       yf.chart("SPY", { period1, interval: "1d" }),
       yf.chart("^VIX", { period1, interval: "1d" }),
     ]);
-    const day = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-    const vixByDay = new Map(vix.quotes.filter((q) => typeof q.close === "number").map((q) => [day(q.date), q.close as number]));
+    const vixByDay = new Map(vix.quotes.filter((q) => typeof q.close === "number").map((q) => [nyDate(q.date), q.close as number]));
     const round = (x: number) => Math.round(x * 100) / 100;
     return spx.quotes.flatMap((q) => {
-      const date = day(q.date);
+      const date = nyDate(q.date);
       const v = vixByDay.get(date);
       return typeof q.open === "number" && typeof q.close === "number" && q.open > 0 && v
         ? [{ date, open: round(q.open), close: round(q.close), vix: round(v) }]
@@ -373,7 +373,7 @@ export async function getDailyCloses(rawTicker: string, years: number): Promise<
     return chart.quotes
       .filter((q) => typeof q.close === "number")
       .map((q) => ({
-        date: q.date.toLocaleDateString("en-CA", { timeZone: "America/New_York" }),
+        date: nyDate(q.date),
         close: q.close as number,
       }));
   });

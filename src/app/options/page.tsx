@@ -6,7 +6,8 @@ import { CondorBot } from "@/components/CondorBot";
 import { Change } from "@/components/Change";
 import { FundChart, type ChartSeries } from "@/components/FundChart";
 import { getIndexBars } from "@/lib/client-data";
-import { money, signedPct } from "@/lib/format";
+import { fmtDate } from "@/lib/dates";
+import { money, signedPct, usd0 } from "@/lib/format";
 import {
   DEFAULT_RULES,
   doublingLadder,
@@ -34,9 +35,6 @@ const PERIODS = [
   { key: "1y", label: "Last year", years: 1 },
 ] as const;
 
-const fmtDate = (d: string) =>
-  new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-const usd0 = (x: number) => money(Math.round(x)).replace(".00", "");
 
 type Settings = Omit<CondorRules, "sizing"> & { period: (typeof PERIODS)[number]["key"] };
 

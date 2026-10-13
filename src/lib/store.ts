@@ -49,7 +49,7 @@ export async function readStore(): Promise<Store> {
 }
 
 /** Serialize read-modify-write cycles so concurrent requests don't clobber each other. */
-export function updateStore(mutate: (s: Store) => void): Promise<Store> {
+function updateStore(mutate: (s: Store) => void): Promise<Store> {
   const next = writeChain.then(async () => {
     const store = await readStore();
     mutate(store);

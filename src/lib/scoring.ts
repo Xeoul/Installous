@@ -18,7 +18,7 @@ export interface StockScore {
 
 export type Rating = "Strong Buy" | "Buy" | "Hold" | "Weak" | "Avoid" | "N/A";
 
-export const FACTOR_WEIGHTS: Record<FactorKey, number> = {
+const FACTOR_WEIGHTS: Record<FactorKey, number> = {
   value: 0.2,
   quality: 0.25,
   growth: 0.2,

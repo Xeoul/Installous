@@ -2,6 +2,7 @@
 // issue assigned to the repo owner, which GitHub emails) and writes the
 // message: one when the AI Fund trades, plus a weekly digest after Friday's
 // close. Pure logic; scripts/alerts.ts does the I/O.
+import { nyDate } from "./dates";
 import type { FundTrade, FundView } from "./fund";
 import type { Pick } from "./portfolio";
 import type { Rating } from "./scoring";
@@ -33,7 +34,6 @@ export interface AlertInput {
 }
 
 const ny = (d: Date, opts: Intl.DateTimeFormatOptions) => d.toLocaleString("en-US", { timeZone: "America/New_York", ...opts });
-const nyDate = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
 const pct = (x: number) => `${x >= 0 ? "+" : ""}${x.toFixed(2)}%`;
 const usd = (x: number) => x.toLocaleString("en-US", { style: "currency", currency: "USD" });
 

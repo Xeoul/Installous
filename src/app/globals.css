@@ -61,10 +61,45 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* App-like touch: no double-tap zoom delay on controls, and a quick dim while
+   pressed (the way iOS highlights a tapped row or button). */
+a, button, select, summary, [role="tab"] {
+  touch-action: manipulation;
+}
+@media (hover: none) {
+  a, button, [role="tab"] {
+    transition: opacity 120ms ease;
+  }
+  a:active, button:active, [role="tab"]:active {
+    opacity: 0.6;
+  }
+}
+
+/* iOS zooms the page when focusing a field with text under 16px; keep them at 16px on phones. */
+@media (max-width: 639px) {
+  input, select, textarea, .input {
+    font-size: 16px !important;
+  }
+}
+
+/* "More" sheet on phones */
+.sheet-backdrop { animation: sheet-fade 200ms ease-out both; }
+.sheet-panel { animation: sheet-up 320ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+@keyframes sheet-fade { from { opacity: 0; } }
+@keyframes sheet-up { from { transform: translateY(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .sheet-backdrop, .sheet-panel { animation: none; }
 }
 
 .num {
@@ -162,5 +197,36 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .live-dot::after {
     animation: none;
+  }
+}
+
+/* Page transitions (React <ViewTransition> in the layout): a quick crossfade of
+   the page, with the header and tab bar held still on top, like app chrome. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+::view-transition-group(page) {
+  animation-duration: 180ms;
+  z-index: 1;
+}
+::view-transition-old(page) {
+  animation: 120ms ease-out both page-out;
+}
+::view-transition-new(page) {
+  animation: 180ms ease-out both page-in;
+}
+@keyframes page-out { to { opacity: 0; } }
+@keyframes page-in { from { opacity: 0; transform: translateY(6px); } }
+::view-transition-group(site-header),
+::view-transition-group(tab-bar) {
+  z-index: 2;
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }

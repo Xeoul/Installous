@@ -9,6 +9,7 @@
 // Fills use real (possibly delayed) Yahoo Finance quotes. The condor workflow
 // runs stepBot a few times in the last half hour of the session and after the
 // close; the state is saved on the fund-data branch.
+import { fmtWeekday, nyDate } from "./dates";
 import { newsOn, NEWS_CALENDAR_ENDS } from "./news-days";
 import { maxLossPerShare, normCdf, settlement } from "./options";
 
@@ -130,7 +131,7 @@ export interface BotInput {
 const MULTIPLIER = 100;
 const CLOSE_FINAL = 16 * 60 + 15; // by 4:15pm ET the day's close is final
 
-export const nyDate = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+export { nyDate };
 export function nyMinutes(d: Date): number {
   const [h, m] = d.toLocaleTimeString("en-GB", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).split(":");
   return Number(h) * 60 + Number(m);
@@ -253,7 +254,6 @@ export function pnlAt(t: Pick<BotTrade, "putLong" | "putShort" | "callShort" | "
   return Math.round(((t.credit - settlement(t, price)) * MULTIPLIER * t.contracts - fees({ feePerLeg } as BotRules, t.contracts)) * 100) / 100;
 }
 
-const fmtDay = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
 
 /** Bring a saved state from an earlier version onto the current rules. */
 function upgrade(state: BotState): BotState {
@@ -323,7 +323,7 @@ export function stepBot(prev: BotState | null, input: BotInput): { state: BotSta
     } else if (!rightExpiry) {
       state.note = rules.expiryDays === 0 ? "No same-day options to trade." : "No next-day options to trade.";
     } else if (news.length) {
-      state.note = `Skipped: ${news.join(" and ")} on ${fmtDay(chain.expiry)}, while the condor would be open.`;
+      state.note = `Skipped: ${news.join(" and ")} on ${fmtWeekday(chain.expiry)}, while the condor would be open.`;
       events.push(state.note);
     } else {
       const condor = condorFromChain(chain, rules);

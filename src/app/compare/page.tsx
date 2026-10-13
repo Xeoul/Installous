@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { LineChart } from "@/components/LineChart";
+import { fmtMonthShortYear } from "@/lib/dates";
 import { Card } from "@/components/Card";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import type { ChartData, ChartRange } from "@/lib/chart";
@@ -221,7 +222,6 @@ function PerformanceChart({ symbols, histories }: { symbols: string[]; histories
   if (data.length < 2) return <div className="h-72 animate-pulse rounded-lg bg-surface-2" />;
   const last = data[data.length - 1];
   const color = (s: string) => COLORS[symbols.indexOf(s)];
-  const fmt = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", year: "2-digit", timeZone: "UTC" });
 
   return (
     <div>
@@ -236,27 +236,18 @@ function PerformanceChart({ symbols, histories }: { symbols: string[]; histories
           </span>
         ))}
       </div>
-      <div className="h-72 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-            <CartesianGrid stroke="var(--grid)" vertical={false} />
-            <XAxis dataKey="date" tickFormatter={fmt} tick={{ fill: "var(--muted)", fontSize: 11 }} tickLine={false} axisLine={{ stroke: "var(--border)" }} minTickGap={40} />
-            <YAxis
-              // A stock can't lose more than 100%, so don't let the axis suggest it.
-              domain={[(min: number) => Math.max(-100, Math.floor(min / 10) * 10), "auto"]}
-              tickFormatter={(v: number) => `${v > 0 ? "+" : ""}${v.toFixed(0)}%`} tick={{ fill: "var(--muted)", fontSize: 11 }} tickLine={false} axisLine={false} width={52} />
-            <Tooltip
-              cursor={{ stroke: "var(--muted)", strokeDasharray: "3 3" }}
-              contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", fontSize: 12 }}
-              labelFormatter={(d) => new Date(`${String(d)}T12:00:00Z`).toLocaleDateString("en-US", { dateStyle: "medium", timeZone: "UTC" })}
-              formatter={(v, name) => [signedPct(Number(v)), String(name)]}
-            />
-            {ready.map((s) => (
-              <Line key={s} type="monotone" dataKey={s} stroke={color(s)} strokeWidth={2} dot={false} activeDot={{ r: 4, stroke: "var(--surface)", strokeWidth: 2 }} isAnimationActive={false} connectNulls />
-            ))}
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+      <LineChart
+        data={data}
+        series={ready.map((s) => ({ key: s, label: s, color: color(s) }))}
+        formatX={fmtMonthShortYear}
+        formatY={(v) => `${v > 0 ? "+" : ""}${v.toFixed(0)}%`}
+        formatValue={(v) => signedPct(v)}
+        yAxisWidth={52}
+        // A stock can't lose more than 100%, so don't let the axis suggest it.
+        yFloor={-100}
+        height={288}
+        caption="Return since the start of the range, by stock"
+      />
     </div>
   );
 }

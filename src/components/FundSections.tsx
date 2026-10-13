@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Card } from "@/components/Card";
 import { FUND_SERIES, FundChart, type ChartSeries } from "@/components/FundChart";
+import { fmtLongMonthYear } from "@/lib/dates";
 import type { BacktestView } from "@/lib/backtest";
 import { stockHref } from "@/lib/client-data";
 import { signedPct } from "@/lib/format";
@@ -120,7 +121,7 @@ export function Backtest({ bt }: { bt: BacktestView }) {
     <Card title={`Backtest: the same rules over ${years(bt.endDate) - years(bt.startDate)} years`}>
       <p className="mb-4 max-w-3xl text-sm text-text-2">
         The fund&apos;s rules replayed day by day since{" "}
-        {new Date(`${bt.startDate}T12:00:00Z`).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}.
+        {fmtLongMonthYear(bt.startDate)}.
         Free data only has today&apos;s company fundamentals, so this version ranks stocks by the{" "}
         <strong className="text-text">momentum factor alone</strong>, the part of the score that can be rebuilt from past
         prices. Each day&apos;s decisions use only prices up to the day before.

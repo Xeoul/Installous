@@ -76,9 +76,7 @@ export function daysBetween(a: string, b: string): number {
   return Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000);
 }
 
-export function nyDate(t: Date): string {
-  return t.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-}
+export { nyDate } from "./dates";
 
 const round = (x: number, d = 2) => Math.round(x * 10 ** d) / 10 ** d;
 

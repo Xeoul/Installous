@@ -8,14 +8,14 @@ import type { BotState } from "./condor-bot";
 import { DEFAULT_PROFILE, DEFAULT_WATCHLIST } from "./defaults";
 import type { BacktestView } from "./backtest";
 import type { FundView } from "./fund";
-import type { IndexBar } from "./options";
+import { unpackBars, type IndexBar, type PackedBars } from "./options";
 import type { Fundamentals, NewsItem, Quote, SearchResult, StockEvents } from "./market";
 import { computePortfolio, mergeHolding, type Pick, type PortfolioSnapshot } from "./portfolio";
 import type { StockScore } from "./scoring";
 import type { Holding, InvestorProfile } from "./store";
 
 export const DEMO = process.env.NEXT_PUBLIC_DEMO === "1";
-export const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 export interface StockData {
   fundamentals: Fundamentals;
@@ -41,6 +41,29 @@ async function json<T>(url: string, init?: RequestInit): Promise<T> {
   if (!r.ok) throw new Error(body.error ?? `Request failed (${r.status})`);
   return body as T;
 }
+
+// Full app: keep recent API reads in memory, so coming back to a page (or two
+// components asking for the same data) is instant instead of another request.
+// Writes clear the entries they change.
+const apiCache = new Map<string, { at: number; value: Promise<unknown> }>();
+
+function cachedJson<T>(url: string, ttlMs: number): Promise<T> {
+  const hit = apiCache.get(url);
+  if (hit && Date.now() - hit.at < ttlMs) return hit.value as Promise<T>;
+  const value = json<T>(url);
+  apiCache.set(url, { at: Date.now(), value });
+  value.catch(() => apiCache.delete(url));
+  return value;
+}
+
+function invalidate(...prefixes: string[]) {
+  for (const key of apiCache.keys()) if (prefixes.some((p) => key.startsWith(p))) apiCache.delete(key);
+}
+
+const MARKET_TTL = 60_000;
+const USER_TTL = 30_000;
+/** Things that change when the watchlist, holdings or profile do. */
+const USER_DATA = ["/api/watchlist", "/api/portfolio", "/api/picks", "/api/profile"];
 
 const send = (method: string, body: unknown): RequestInit => ({
   method,
@@ -115,53 +138,54 @@ export function getDemoMeta(): Promise<DemoMeta> {
 /** The AI Fund's latest published state. */
 export function getFund(): Promise<FundView> {
   if (DEMO) return snapshot("fund.json");
-  return json("/api/fund");
+  return cachedJson("/api/fund", MARKET_TTL);
 }
 
 /** The AI Fund rules replayed over the last 5 years. */
 export function getBacktest(): Promise<BacktestView> {
   if (DEMO) return snapshot("backtest.json");
-  return json("/api/backtest");
+  return cachedJson("/api/backtest", 10 * MARKET_TTL);
 }
 
 /** The live SPY condor bot's latest published state. */
 export function getCondorBot(): Promise<BotState> {
   if (DEMO) return snapshot("condor.json");
-  return json("/api/condor");
+  return cachedJson("/api/condor", MARKET_TTL);
 }
 
 /** Daily SPY and VIX history for the Options Lab. */
-export function getIndexBars(): Promise<IndexBar[]> {
-  if (DEMO) return snapshot("options.json");
-  return json("/api/options");
+export async function getIndexBars(): Promise<IndexBar[]> {
+  const packed = DEMO ? await snapshot<PackedBars>("options.json") : await cachedJson<PackedBars>("/api/options", 10 * MARKET_TTL);
+  return unpackBars(packed);
 }
 
 export function getStock(ticker: string): Promise<StockData> {
   const t = normalize(ticker);
   if (DEMO) return snapshot(`stock/${t}.json`, notInDemo(t));
-  return json(`/api/stock/${encodeURIComponent(t)}`);
+  return cachedJson(`/api/stock/${encodeURIComponent(t)}`, MARKET_TTL);
 }
 
 export function getHistory(ticker: string, range: ChartRange): Promise<ChartData> {
   const t = normalize(ticker);
   if (DEMO) return snapshot(`history/${t}/${range}.json`, notInDemo(t));
-  return json(`/api/history/${encodeURIComponent(t)}?range=${range}`);
+  // Shorter than the 1D chart's one-minute refresh, so each refresh gets new data.
+  return cachedJson(`/api/history/${encodeURIComponent(t)}?range=${range}`, 30_000);
 }
 
 export function getEvents(ticker: string): Promise<StockEvents> {
   const t = normalize(ticker);
   if (DEMO) return snapshot(`events/${t}.json`, notInDemo(t));
-  return json(`/api/events/${encodeURIComponent(t)}`);
+  return cachedJson(`/api/events/${encodeURIComponent(t)}`, 10 * MARKET_TTL);
 }
 
 export function getNews(ticker: string): Promise<NewsItem[]> {
   const t = normalize(ticker);
   if (DEMO) return snapshot<NewsItem[]>(`news/${t}.json`).catch(() => []);
-  return json(`/api/news/${encodeURIComponent(t)}`);
+  return cachedJson(`/api/news/${encodeURIComponent(t)}`, 5 * MARKET_TTL);
 }
 
 export async function getPicks(): Promise<Pick[]> {
-  if (!DEMO) return json("/api/picks");
+  if (!DEMO) return cachedJson("/api/picks", USER_TTL);
   const { watchlist } = readLocal();
   const picks = await snapshot<Pick[]>("picks.json");
   return picks.map((p) => ({ ...p, onWatchlist: watchlist.includes(p.ticker) }));
@@ -178,13 +202,13 @@ export async function searchTickers(q: string, signal?: AbortSignal): Promise<Se
 
 export async function getSparklines(tickers: string[]): Promise<Record<string, ChartData>> {
   if (tickers.length === 0) return {};
-  if (!DEMO) return json(`/api/sparklines?tickers=${tickers.map(encodeURIComponent).join(",")}`);
+  if (!DEMO) return cachedJson(`/api/sparklines?tickers=${tickers.map(encodeURIComponent).join(",")}`, MARKET_TTL);
   const all = await snapshot<Record<string, ChartData>>("sparklines.json");
   return Object.fromEntries(tickers.filter((t) => all[t]).map((t) => [t, all[t]]));
 }
 
 export async function getWatchlist(): Promise<Quote[]> {
-  if (!DEMO) return json("/api/watchlist");
+  if (!DEMO) return cachedJson("/api/watchlist", USER_TTL);
   const quotes = await demoQuotes();
   return readLocal().watchlist.map(
     (t) => quotes[t] ?? { ticker: t, name: t, price: null, change: null, changePercent: null },
@@ -193,7 +217,7 @@ export async function getWatchlist(): Promise<Quote[]> {
 
 export async function addToWatchlist(ticker: string): Promise<string[]> {
   const t = normalize(ticker);
-  if (!DEMO) return json("/api/watchlist", send("POST", { ticker: t }));
+  if (!DEMO) return json<string[]>("/api/watchlist", send("POST", { ticker: t })).finally(() => invalidate(...USER_DATA));
   if (!(await demoSupports(t))) throw new Error(notInDemo(t));
   return writeLocal((s) => {
     if (!s.watchlist.includes(t)) s.watchlist.push(t);
@@ -202,21 +226,21 @@ export async function addToWatchlist(ticker: string): Promise<string[]> {
 
 export async function removeFromWatchlist(ticker: string): Promise<string[]> {
   const t = normalize(ticker);
-  if (!DEMO) return json("/api/watchlist", send("DELETE", { ticker: t }));
+  if (!DEMO) return json<string[]>("/api/watchlist", send("DELETE", { ticker: t })).finally(() => invalidate(...USER_DATA));
   return writeLocal((s) => {
     s.watchlist = s.watchlist.filter((w) => w !== t);
   }).watchlist;
 }
 
 export async function getPortfolio(): Promise<PortfolioSnapshot> {
-  if (!DEMO) return json("/api/portfolio");
+  if (!DEMO) return cachedJson("/api/portfolio", USER_TTL);
   const s = readLocal();
   return computePortfolio(s.holdings, await demoQuotes(), s.watchlist);
 }
 
 export async function addHolding(ticker: string, shares: number, price: number): Promise<PortfolioSnapshot> {
   const t = normalize(ticker);
-  if (!DEMO) return json("/api/portfolio", send("POST", { ticker: t, shares, price }));
+  if (!DEMO) return json<PortfolioSnapshot>("/api/portfolio", send("POST", { ticker: t, shares, price })).finally(() => invalidate(...USER_DATA));
   if (!(await demoSupports(t))) throw new Error(notInDemo(t));
   writeLocal((s) => {
     s.holdings = mergeHolding(s.holdings, t, shares, price);
@@ -226,7 +250,7 @@ export async function addHolding(ticker: string, shares: number, price: number):
 
 export async function removeHolding(ticker: string): Promise<PortfolioSnapshot> {
   const t = normalize(ticker);
-  if (!DEMO) return json("/api/portfolio", send("DELETE", { ticker: t }));
+  if (!DEMO) return json<PortfolioSnapshot>("/api/portfolio", send("DELETE", { ticker: t })).finally(() => invalidate(...USER_DATA));
   writeLocal((s) => {
     s.holdings = s.holdings.filter((h) => h.ticker !== t);
   });
@@ -234,12 +258,12 @@ export async function removeHolding(ticker: string): Promise<PortfolioSnapshot> 
 }
 
 export async function getProfile(): Promise<InvestorProfile> {
-  if (!DEMO) return json("/api/profile");
+  if (!DEMO) return cachedJson("/api/profile", USER_TTL);
   return readLocal().profile;
 }
 
 export async function saveProfile(profile: InvestorProfile): Promise<InvestorProfile> {
-  if (!DEMO) return json("/api/profile", send("PUT", profile));
+  if (!DEMO) return json<InvestorProfile>("/api/profile", send("PUT", profile)).finally(() => invalidate(...USER_DATA));
   return writeLocal((s) => {
     s.profile = profile;
   }).profile;
