@@ -6,6 +6,7 @@
 # clock) and steps it again: a few times in the last half hour, where it
 # opens the next condor, and once after the official close to settle.
 # The bot itself decides what to do at each step; extra steps are harmless.
+# After the close a step also sends the AI Fund's day (once a day).
 # A run that starts too early to reach the close (jobs are limited to six
 # hours) waits as long as it can, then starts a fresh run of this workflow
 # to take over (workflow_dispatch, which GitHub doesn't skip), so a single
@@ -26,6 +27,7 @@ save() {
     git config user.name "github-actions[bot]"
     git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
     git add condor.json
+    [ -f notify.json ] && git add notify.json
     git diff --cached --quiet && exit 0
     git commit -q -m "Update condor bot $(date -u +%Y-%m-%dT%H:%MZ)" || exit 1
     # The deploy workflow also pushes here (other files), so rebase onto it first.
@@ -36,7 +38,7 @@ save() {
 
 step() {
   echo "::group::Step at $(TZ=America/New_York date '+%a %H:%M:%S %Z')"
-  if npm run -s condor && save; then ok=0; else ok=1; echo "::warning::Condor step failed; the next step retries"; fi
+  if npm run -s condor && { npm run -s fund-summary; save; }; then ok=0; else ok=1; echo "::warning::Condor step failed; the next step retries"; fi
   echo "::endgroup::"
   return $ok
 }

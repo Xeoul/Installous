@@ -58,4 +58,5 @@ jobs:
           TIMES: ${{ inputs.times }}
           BUDGET_MIN: ${{ inputs.budget_min || 335 }}
           GH_TOKEN: ${{ github.token }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           HANDOFF: gh workflow run condor.yml -R ${{ github.repository }} --ref main

@@ -5,10 +5,13 @@
 //
 //   FUND_DIR   where condor.json (the bot's state) lives; the workflow points
 //              this at a checkout of the `fund-data` branch.
+//   NTFY_TOPIC phone notifications for opens, settlements and skips (scripts/notify.ts)
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import { BOT_RULES, nyDate, stepBot, type BotState, type Chain } from "../src/lib/condor-bot";
 import { getChain, getDailyCloses } from "../src/lib/market";
+import { condorNotifications } from "../src/lib/notifications";
+import { notify } from "./notify";
 
 const FUND_DIR = process.env.FUND_DIR ?? path.join("data", "fund");
 const STATE_FILE = path.join(FUND_DIR, "condor.json");
@@ -43,6 +46,9 @@ async function main() {
   await writeFile(STATE_FILE, JSON.stringify(state, null, 2) + "\n");
   await mkdir(path.dirname(VIEW_FILE), { recursive: true });
   await writeFile(VIEW_FILE, JSON.stringify(state));
+
+  // Saved first, so a step that's re-run never notifies twice.
+  for (const n of condorNotifications(prev, state)) await notify(n);
 
   console.log(`Condor bot: $${state.equity.toFixed(2)}, ${state.streak} loss(es) in a row${state.bust ? `, BUST ${state.bust}` : ""}`);
   for (const e of events) console.log(`  ${e}`);
