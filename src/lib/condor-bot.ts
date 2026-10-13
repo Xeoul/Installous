@@ -1,12 +1,19 @@
-// A live paper-trading bot: every trading day it sells one same-day SPY iron
-// condor at real quoted prices, sizes it by the martingale (double after a
-// loss, back to the base size after a win), and settles it at SPY's official
-// close. The scheduled workflow calls stepBot every 30 minutes during market
-// hours; the state is saved on the fund-data branch like the AI Fund's.
+// A live paper-trading bot: it sells a SPY iron condor at real quoted prices,
+// holds it to expiration (the next trading day by default), settles it at
+// SPY's official close, and sizes each trade by the martingale (double after
+// a loss, back to the base size after a win). One trade at a time, so each
+// size follows the last result. The scheduled workflow calls stepBot every
+// 30 minutes during market hours; the state is saved on the fund-data branch
+// like the AI Fund's.
 import { maxLossPerShare, normCdf, settlement, sizeFor } from "./options";
 
 export interface BotRules {
   ticker: string;
+  /** Trading days until expiration: 0 = same day, 1 = the next trading day. */
+  expiryDays: number;
+  /** Short strikes placed so the credit is about half the wing width (win ≈ loss). */
+  evenMoney: boolean;
+  /** Target delta of the short strikes when not evenMoney. */
   shortDelta: number;
   /** Dollars between each short strike and its long wing. */
   width: number;
@@ -25,8 +32,11 @@ export interface BotRules {
 
 export const BOT_RULES: BotRules = {
   ticker: "SPY",
+  expiryDays: 1,
+  evenMoney: true,
   shortDelta: 0.1,
-  width: 2,
+  // $4 wings with ~$2 credit: about +$200 on a win, -$200 on a full loss, per condor.
+  width: 4,
   contracts: 1,
   startCash: 25_000,
   maxDoublings: null,
@@ -54,7 +64,10 @@ export interface Chain {
 }
 
 export interface BotTrade {
+  /** Day the trade opened. */
   date: string;
+  /** Expiration (and settlement) day. */
+  expiry: string;
   openedAt: string;
   spot: number;
   putLong: number;
@@ -73,7 +86,7 @@ export interface BotTrade {
 }
 
 export interface BotState {
-  version: 1;
+  version: 2;
   startDate: string;
   rules: BotRules;
   equity: number;
@@ -90,7 +103,7 @@ export interface BotState {
 
 export interface BotInput {
   now: Date;
-  /** Today's same-day chain, or null when there isn't one (weekend, holiday, outage). */
+  /** The chain for the expiration the rules trade, or null (weekend, holiday, outage). */
   chain: Chain | null;
   /** SPY's official daily closes by date. */
   closes: Record<string, number>;
@@ -147,12 +160,44 @@ function pickSide(kind: "put" | "call", legs: ChainLeg[], spot: number, sd: numb
   return { short, long };
 }
 
-/** Choose today's condor from the chain and price it at the mids, less slippage. */
+/** Quoted legs by strike. */
+const byStrike = (legs: ChainLeg[]) => new Map(legs.filter((l) => l.ask > 0 && l.bid >= 0 && l.ask >= l.bid).map((l) => [l.strike, l]));
+
+/**
+ * Step the short strikes out from the money until the credit is closest to
+ * half the wing width, so a win pays about what a full loss costs.
+ */
+function evenMoneyCondor(chain: Chain, rules: BotRules) {
+  const puts = byStrike(chain.puts);
+  const calls = byStrike(chain.calls);
+  const target = rules.width / 2;
+  let best: { put: { short: ChainLeg; long: ChainLeg }; call: { short: ChainLeg; long: ChainLeg }; credit: number } | null = null;
+  for (let d = 0; d <= 40; d++) {
+    const ps = puts.get(Math.floor(chain.spot) - d);
+    const cs = calls.get(Math.ceil(chain.spot) + d);
+    const pl = ps && puts.get(ps.strike - rules.width);
+    const cl = cs && calls.get(cs.strike + rules.width);
+    if (!ps || !cs || !pl || !cl || ps.bid <= 0 || cs.bid <= 0) continue;
+    const credit = mid(ps) - mid(pl) + mid(cs) - mid(cl) - 2 * rules.slippage;
+    if (!best || Math.abs(credit - target) < Math.abs(best.credit - target)) best = { put: { short: ps, long: pl }, call: { short: cs, long: cl }, credit };
+    if (credit < target) break;
+  }
+  return best;
+}
+
+/** Choose the condor from the chain and price it at the mids, less slippage. */
 export function condorFromChain(chain: Chain, rules: BotRules) {
-  const sd = impliedMove(chain);
-  if (!sd) return null;
-  const put = pickSide("put", chain.puts, chain.spot, sd, rules);
-  const call = pickSide("call", chain.calls, chain.spot, sd, rules);
+  let put, call;
+  if (rules.evenMoney) {
+    const best = evenMoneyCondor(chain, rules);
+    if (!best) return null;
+    ({ put, call } = best);
+  } else {
+    const sd = impliedMove(chain);
+    if (!sd) return null;
+    put = pickSide("put", chain.puts, chain.spot, sd, rules);
+    call = pickSide("call", chain.calls, chain.spot, sd, rules);
+  }
   if (!put || !call) return null;
   const credit = mid(put.short) - mid(put.long) + mid(call.short) - mid(call.long) - 2 * rules.slippage;
   return {
@@ -166,7 +211,7 @@ export function condorFromChain(chain: Chain, rules: BotRules) {
 
 export function newBotState(now: Date, rules: BotRules = BOT_RULES): BotState {
   return {
-    version: 1,
+    version: 2,
     startDate: nyDate(now),
     rules,
     equity: rules.startCash,
@@ -183,34 +228,42 @@ export function newBotState(now: Date, rules: BotRules = BOT_RULES): BotState {
 /** Advance the bot: settle a finished trade, then open today's if it's time. */
 export function stepBot(prev: BotState | null, input: BotInput): { state: BotState; events: string[] } {
   const state: BotState = prev ? structuredClone(prev) : newBotState(input.now);
+  // Version 1 traded same-day 10-delta condors; carry the account over to the current rules.
+  if ((state.version as number) !== 2) {
+    state.version = 2;
+    state.rules = BOT_RULES;
+  }
   const rules = state.rules;
   const events: string[] = [];
   const today = nyDate(input.now);
   const minutes = nyMinutes(input.now);
 
-  // 1. Settle at the official close of the trade's day.
+  // 1. Settle at the official close on the expiration day. (During that
+  // session Yahoo's daily "close" is just the latest price, so wait for 4:15.)
   const open = state.open;
-  const close = open ? input.closes[open.date] : undefined;
-  if (open && close !== undefined && (open.date < today || minutes >= CLOSE_FINAL)) {
+  const expiry = open ? (open.expiry ?? open.date) : "";
+  const close = open ? input.closes[expiry] : undefined;
+  if (open && close !== undefined && (expiry < today || (expiry === today && minutes >= CLOSE_FINAL))) {
     const owed = settlement(open, close);
     const pnl = Math.round(((open.credit - owed) * MULTIPLIER * open.contracts - fees(rules, open.contracts)) * 100) / 100;
     state.equity = Math.round((state.equity + pnl) * 100) / 100;
     state.streak = pnl < 0 ? state.streak + 1 : 0;
-    state.trades.unshift({ ...open, close, pnl, equityAfter: state.equity });
+    state.trades.unshift({ ...open, expiry, close, pnl, equityAfter: state.equity });
     state.open = null;
     const last = state.history.at(-1);
-    if (last?.date === open.date) last.equity = state.equity;
-    else state.history.push({ date: open.date, equity: state.equity });
-    events.push(`Settled ${open.date}: SPY closed ${close}, ${pnl >= 0 ? "kept" : "lost"} $${Math.abs(pnl).toFixed(2)} on ${open.contracts}×`);
+    if (last?.date === expiry) last.equity = state.equity;
+    else state.history.push({ date: expiry, equity: state.equity });
+    events.push(`Settled ${expiry}: SPY closed ${close}, ${pnl >= 0 ? "kept" : "lost"} $${Math.abs(pnl).toFixed(2)} on ${open.contracts}×`);
   }
 
-  // 2. Open today's trade.
-  const tradedToday = state.open?.date === today || state.trades[0]?.date === today;
+  // 2. Open the next trade (one at a time, so a trade that settles today means the next opens tomorrow).
+  const tradedToday = state.open?.date === today || state.trades[0]?.date === today || state.trades[0]?.expiry === today;
   const inWindow = minutes >= rules.openFrom && minutes <= rules.openUntil;
   if (!state.open && !state.bust && !tradedToday && inWindow) {
     const chain = input.chain;
-    if (!chain || chain.expiry !== today) {
-      state.note = "No same-day options to trade.";
+    const rightExpiry = chain && (rules.expiryDays === 0 ? chain.expiry === today : chain.expiry > today);
+    if (!chain || !rightExpiry) {
+      state.note = rules.expiryDays === 0 ? "No same-day options to trade." : "No next-day options to trade.";
     } else if (!chain.marketOpen) {
       state.note = "The market isn't open.";
     } else {
@@ -232,6 +285,7 @@ export function stepBot(prev: BotState | null, input: BotInput): { state: BotSta
           const contracts = Math.min(sizing.contracts, affordable);
           state.open = {
             date: today,
+            expiry: chain.expiry,
             openedAt: input.now.toISOString(),
             spot: chain.spot,
             ...condor,
@@ -241,7 +295,7 @@ export function stepBot(prev: BotState | null, input: BotInput): { state: BotSta
           };
           state.note = null;
           events.push(
-            `Opened ${today}: ${condor.putLong}/${condor.putShort}p ${condor.callShort}/${condor.callLong}c for $${(condor.credit * MULTIPLIER).toFixed(0)} × ${contracts}`,
+            `Opened ${today} (expires ${chain.expiry}): ${condor.putLong}/${condor.putShort}p ${condor.callShort}/${condor.callLong}c for $${(condor.credit * MULTIPLIER).toFixed(0)} × ${contracts}`,
           );
         }
       }

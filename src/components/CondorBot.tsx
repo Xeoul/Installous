@@ -6,14 +6,15 @@ import { FundChart } from "@/components/FundChart";
 import { getCondorBot } from "@/lib/client-data";
 import type { BotState, BotTrade } from "@/lib/condor-bot";
 import { money } from "@/lib/format";
-import { sizeFor } from "@/lib/options";
+import { useLivePrice } from "@/lib/live/useLivePrice";
+import { settlement, sizeFor } from "@/lib/options";
 
 const fmtDate = (d: string) =>
   new Date(`${d}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
 const usd0 = (x: number) => money(Math.round(x)).replace(".00", "");
 const strikes = (t: BotTrade) => `${t.putLong}/${t.putShort}p · ${t.callShort}/${t.callLong}c`;
 
-/** The live paper bot: one martingale-sized SPY iron condor every market day. */
+/** The live paper bot: one martingale-sized SPY iron condor at a time, held to expiration. */
 export function CondorBot() {
   const [bot, setBot] = useState<BotState | null>(null);
   const [error, setError] = useState(false);
@@ -27,6 +28,10 @@ export function CondorBot() {
   const r = bot?.rules;
   const size = (streak: number) => (r ? sizeFor({ ...r, sizing: "martingale" }, streak).contracts : 0);
   const wins = bot?.trades.filter((t) => (t.pnl ?? 0) >= 0).length ?? 0;
+  // While a trade is open, show what it would pay if SPY settled at the live price,
+  // the way you'd check it in the last minutes before the close.
+  const live = useLivePrice(bot?.open && !bot.bust ? bot.rules.ticker : null);
+  const now = bot?.open && live && r ? projected(bot.open, live.price, r.feePerLeg) : null;
 
   return (
     <section className="rounded-2xl border border-border bg-surface p-5">
@@ -47,7 +52,7 @@ export function CondorBot() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Tile label="Account" value={usd0(bot.equity)} sub={<Change value={(bot.equity / r.startCash - 1) * 100} />} />
             <Tile
-              label={bot.open ? "Today's trade" : "Last trade"}
+              label={bot.open ? "Open trade" : "Last trade"}
               value={
                 bot.open
                   ? `${bot.open.contracts}× for ${usd0(bot.open.credit * 100 * bot.open.contracts)}`
@@ -58,11 +63,11 @@ export function CondorBot() {
               sub={
                 bot.open ? (
                   <span className="text-text-2">
-                    {strikes(bot.open)} · settles at 4:00pm ET
+                    {strikes(bot.open)} · settles {fmtDate(bot.open.expiry ?? bot.open.date)} at 4:00pm ET
                   </span>
                 ) : bot.trades[0] ? (
                   <span className="text-text-2">
-                    {fmtDate(bot.trades[0].date)} · SPY closed {bot.trades[0].close?.toFixed(2)}
+                    {fmtDate(bot.trades[0].expiry ?? bot.trades[0].date)} · SPY closed {bot.trades[0].close?.toFixed(2)}
                   </span>
                 ) : (
                   <span className="text-text-2">Opens after 9:45am ET on market days</span>
@@ -91,6 +96,18 @@ export function CondorBot() {
             />
           </div>
 
+          {now && live && (
+            <p className="num mt-3 flex flex-wrap items-baseline gap-x-2 text-sm text-text-2" aria-live="polite">
+              <span className="live-dot" aria-hidden />
+              If SPY settled now at {live.price.toFixed(2)}:
+              <span className={`font-semibold ${now.pnl >= 0 ? "text-up" : "text-down"}`}>
+                {now.pnl >= 0 ? "+" : "−"}
+                {usd0(Math.abs(now.pnl))}
+              </span>
+              <span>· {now.label}</span>
+            </p>
+          )}
+
           {bot.note && !bot.open && <p className="mt-3 text-sm text-text-2">{bot.note}</p>}
 
           {bot.history.length >= 2 && (
@@ -103,7 +120,7 @@ export function CondorBot() {
             <ul className="mt-4 divide-y divide-border text-sm">
               {bot.trades.slice(0, 10).map((t) => (
                 <li key={t.date} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-2">
-                  <span className="flex-1 text-xs text-muted sm:w-24 sm:flex-none">{fmtDate(t.date)}</span>
+                  <span className="flex-1 text-xs text-muted sm:w-24 sm:flex-none">{fmtDate(t.expiry ?? t.date)}</span>
                   <span className="num order-last w-full text-xs text-text-2 sm:order-none sm:w-auto sm:min-w-0 sm:flex-1">
                     {strikes(t)} · SPY {t.spot.toFixed(2)} → {t.close?.toFixed(2)}
                   </span>
@@ -118,15 +135,29 @@ export function CondorBot() {
           )}
 
           <p className="mt-4 text-xs text-muted">
-            Every market day after 9:45am ET it sells one same-day SPY iron condor: the strikes nearest {Math.round(r.shortDelta * 100)} delta
-            with ${r.width} wings, filled at the quoted mid less ${r.slippage.toFixed(2)} per spread (Yahoo Finance quotes, which can be
-            delayed), and settled at the 4:00pm close. It starts with {usd0(r.startCash)}, trades {r.contracts} contract after a win and
-            doubles after every loss{r.maxDoublings === null ? " with no limit" : `, up to ${r.maxDoublings} times`}. Paper money only.
+            After 9:45am ET it sells a SPY iron condor expiring {r.expiryDays === 0 ? "the same day" : "the next trading day"} with ${r.width}{" "}
+            wings,{" "}
+            {r.evenMoney
+              ? `short strikes placed so it collects about $${(r.width * 50).toFixed(0)}: a win pays about what a full loss costs`
+              : `short strikes nearest ${Math.round(r.shortDelta * 100)} delta`}
+            . It fills at the quoted mid less ${r.slippage.toFixed(2)} per spread (Yahoo Finance quotes, which can be delayed), holds to
+            expiration, and settles at the 4:00pm close. One trade at a time, so the next opens the morning after one settles. It starts
+            with {usd0(r.startCash)}, trades {r.contracts} contract after a win and doubles after every loss
+            {r.maxDoublings === null ? " with no limit" : `, up to ${r.maxDoublings} times`}. Paper money only.
           </p>
         </>
       )}
     </section>
   );
+}
+
+/** What an open condor would pay if it settled at `price`, and whether that's a full win, full loss or partial. */
+function projected(t: BotTrade, price: number, feePerLeg: number) {
+  const owed = settlement(t, price);
+  const pnl = (t.credit - owed) * 100 * t.contracts - 4 * feePerLeg * t.contracts;
+  const maxOwed = Math.max(t.putShort - t.putLong, t.callLong - t.callShort);
+  const label = owed === 0 ? "full win" : owed >= maxOwed ? "full loss" : pnl >= 0 ? "partial win" : "partial loss";
+  return { pnl, label };
 }
 
 function Tile({ label, value, sub }: { label: string; value: string; sub: React.ReactNode }) {

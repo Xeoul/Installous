@@ -25,7 +25,8 @@ function bars(closes: number[], vix = 20): IndexBar[] {
   return out;
 }
 
-const rules = (r: Partial<CondorRules> = {}): CondorRules => ({ ...DEFAULT_RULES, feePerLeg: 0, slippage: 0, ...r });
+// Delta-placed strikes unless a test says otherwise.
+const rules = (r: Partial<CondorRules> = {}): CondorRules => ({ ...DEFAULT_RULES, evenMoney: false, feePerLeg: 0, slippage: 0, ...r });
 
 describe("pricing", () => {
   it("normal CDF and its inverse agree", () => {
@@ -48,6 +49,14 @@ describe("pricing", () => {
     expect(Number.isInteger(c.putShort)).toBe(true);
     expect(c.credit).toBeGreaterThan(0);
     expect(c.credit).toBeLessThan(3);
+  });
+
+  it("places even-money strikes so the credit is about half the width", () => {
+    const c = buildCondor(500, 1 / 252, 0.15, { shortDelta: 0.1, width: 4, slippage: 0.01, evenMoney: true });
+    expect(c.putShort - c.putLong).toBe(4);
+    expect(Math.abs(c.credit - 2)).toBeLessThan(0.3);
+    expect(c.putShort).toBeLessThan(500);
+    expect(c.callShort).toBeGreaterThan(500);
   });
 
   it("settles between zero and the wing width", () => {

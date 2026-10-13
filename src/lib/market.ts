@@ -317,10 +317,16 @@ export async function getNews(rawTicker: string): Promise<NewsItem[]> {
   });
 }
 
-/** The nearest-expiring option chain for a ticker (on a trading day, today's), for the condor bot. */
-export async function getNearestChain(rawTicker: string): Promise<Chain> {
+/**
+ * The option chain for a ticker's first expiration on or after `from`
+ * (YYYY-MM-DD), for the condor bot.
+ */
+export async function getChain(rawTicker: string, from: string): Promise<Chain> {
   const ticker = normalizeTicker(rawTicker);
-  const r = await yf.options(ticker);
+  const listing = await yf.options(ticker);
+  const date = listing.expirationDates.find((d) => d.toISOString().slice(0, 10) >= from);
+  if (!date) throw new Error(`No ${ticker} options expiring on or after ${from}`);
+  const r = date.getTime() === listing.options[0]?.expirationDate.getTime() ? listing : await yf.options(ticker, { date });
   const o = r.options[0];
   const spot = num(r.quote?.regularMarketPrice);
   if (!o || spot === null) throw new Error(`No option chain for ${ticker}`);
