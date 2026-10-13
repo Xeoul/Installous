@@ -10,8 +10,10 @@ import { money, signedPct } from "@/lib/format";
 import {
   DEFAULT_RULES,
   doublingLadder,
+  maxLossPerShare,
   nextCondor,
-  simulateCondors,
+  planTrades,
+  sizePlan,
   type CondorResult,
   type CondorRules,
   type CondorTrade,
@@ -52,17 +54,30 @@ export default function OptionsLab() {
 
   const set = <K extends keyof Settings>(k: K, v: Settings[K]) => setS((cur) => ({ ...cur, [k]: v }));
 
-  const sim = useMemo(() => {
+  // The trades depend only on the strategy; sizing just decides contracts. So the
+  // (slow) plan is reused when only cash, base size or martingale steps change.
+  const slice = useMemo(() => {
     if (!bars?.length) return null;
     const p = PERIODS.find((x) => x.key === s.period)!;
     const from =
       "from" in p ? p.from : new Date(Date.parse(`${bars.at(-1)!.date}T12:00:00Z`) - p.years * 365.25 * 86_400_000).toISOString().slice(0, 10);
-    const slice = bars.filter((b) => b.date >= from);
+    return bars.filter((b) => b.date >= from);
+  }, [bars, s.period]);
+  const { dte, shortDelta, evenMoney, width, slippage, takeProfit, stopLoss, ivScale } = s;
+  const plan = useMemo(
+    () => (slice ? planTrades(slice, { dte, shortDelta, evenMoney, width, slippage, takeProfit, stopLoss, ivScale }) : null),
+    [slice, dte, shortDelta, evenMoney, width, slippage, takeProfit, stopLoss, ivScale],
+  );
+  const sim = useMemo(() => {
+    if (!plan || !slice) return null;
     const rules: CondorRules = { ...s, sizing: "fixed" };
-    const fixed = simulateCondors(slice, { ...rules, sizing: "fixed" });
-    const martingale = simulateCondors(slice, { ...rules, sizing: "martingale" });
-    return { fixed, martingale, next: nextCondor(slice, { ...rules, sizing: "fixed" }), from: slice[0]?.date };
-  }, [bars, s]);
+    return {
+      fixed: sizePlan(plan, rules),
+      martingale: sizePlan(plan, { ...rules, sizing: "martingale" }),
+      next: nextCondor(slice, rules),
+      from: slice[0]?.date,
+    };
+  }, [plan, slice, s]);
 
   const history = useMemo(() => (sim ? mergeCurves(sim.fixed, sim.martingale) : []), [sim]);
 
@@ -78,8 +93,9 @@ export default function OptionsLab() {
   const m = sim?.martingale.stats;
   const f = sim?.fixed.stats;
   const next = sim?.next;
-  const ladder = next && f ? doublingLadder(next.condor, s, f.winRatePercent, f.trades) : [];
-  const maxLoss = next ? (next.condor.putShort - next.condor.putLong - next.condor.credit) * 100 : null;
+  const ladder = next && f ? doublingLadder(next.condor, s) : [];
+  const maxLoss = next ? maxLossPerShare(next.condor) * 100 : null;
+  const streaks = sim ? losingStreaks(sim.fixed.trades) : [];
   const trades = sim ? [...sim.martingale.trades].reverse() : [];
   const shownTrades = showAll ? trades.slice(0, 500) : trades.slice(0, 20);
 
@@ -91,9 +107,9 @@ export default function OptionsLab() {
           <span className="rounded-md border border-border bg-surface-2 px-2 py-0.5 text-xs font-medium text-text-2">Paper money</span>
         </div>
         <p className="mt-1 max-w-3xl text-text-2">
-          Sell SPY iron condors with the martingale system: double the size after every loss, go back to the base size
-          after a win. The live bot holds one next-day condor at a time with real quotes; the simulator below replays the
-          same idea over 20 years.
+          Sell SPY iron condors with martingale sizing: a loss moves up a level (1, 2, 5, 10, 25 contracts), any win goes
+          back to level 1. The live bot rolls into a next-day condor in the last half hour of each market day at real
+          quotes; the simulator below replays the same idea over 20 years.
         </p>
       </div>
 
@@ -183,6 +199,20 @@ export default function OptionsLab() {
               <option value="3">Loss of 3× the credit</option>
             </select>
           </Field>
+          <Field label="Option prices" hint="Very short-dated options often trade below the VIX; cheaper prices mean less credit">
+            <select className="input w-full" value={s.ivScale} onChange={(e) => set("ivScale", Number(e.target.value))}>
+              <option value={1}>At the VIX (optimistic)</option>
+              <option value={0.9}>10% below the VIX</option>
+              <option value={0.8}>20% below the VIX</option>
+            </select>
+          </Field>
+          <Field label="Fills" hint="What you give up versus the mid price, per two-leg spread">
+            <select className="input w-full" value={s.slippage} onChange={(e) => set("slippage", Number(e.target.value))}>
+              <option value={0.01}>Tight: 1¢ per spread</option>
+              <option value={0.03}>Typical: 3¢ per spread</option>
+              <option value={0.05}>Wide: 5¢ per spread</option>
+            </select>
+          </Field>
           <Field label="Starting cash">
             <select className="input w-full" value={s.startCash} onChange={(e) => set("startCash", Number(e.target.value))}>
               {[10_000, 25_000, 50_000, 100_000, 250_000].map((c) => (
@@ -228,8 +258,9 @@ export default function OptionsLab() {
           </Field>
         </div>
         <p className="mt-4 text-xs text-muted">
-          Each trade pays ${s.feePerLeg.toFixed(2)} per contract per leg in fees and gives up ${s.slippage.toFixed(2)} per spread
-          in slippage. SPY has had same-day expirations every weekday only since late 2022; earlier years assume it did.
+          Each trade also pays ${s.feePerLeg.toFixed(2)} per contract per leg in fees. SPY has had same-day expirations every
+          weekday only since late 2022; earlier years assume it did. Results swing a lot with option prices and fills, so
+          try the less optimistic settings before trusting a number.
         </p>
       </Card>
 
@@ -263,9 +294,9 @@ export default function OptionsLab() {
                 <p className="text-sm text-text-2">
                   Martingale needs each win to pay about what each loss costs, like red or black at roulette. This condor does:
                   it collects about <strong className="text-text">{usd0(next.condor.credit * 100)}</strong> and can lose up to{" "}
-                  <strong className="text-text">{usd0(maxLoss)}</strong>, so one doubled win wins back the last loss plus a
-                  bit. The catch is the losing streaks: each one doubles the next bet, and the table shows how fast that
-                  outgrows the account.
+                  <strong className="text-text">{usd0(maxLoss)}</strong>, so one win at the next size wins back the losses
+                  before it plus a bit. The catch is the losing streaks: each one raises the next bet, and the table shows how
+                  fast that outgrows the account.
                 </p>
               ) : (
                 <p className="text-sm text-text-2">
@@ -295,7 +326,7 @@ export default function OptionsLab() {
                         <td className="num px-3 py-2 text-right">{r.contracts}×</td>
                         <td className="num px-3 py-2 text-right">{usd0(r.atRisk)}</td>
                         <td className="num px-3 py-2 text-right">{usd0(r.lostSoFar)}</td>
-                        <td className="num px-5 py-2 text-right">{r.losses === 0 ? "—" : timesSeen(sim!.fixed.trades, r.losses)}</td>
+                        <td className="num px-5 py-2 text-right">{r.losses === 0 ? "—" : streaks.filter((n) => n >= r.losses).length.toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -387,17 +418,20 @@ export default function OptionsLab() {
           </li>
           <li>
             Historical option prices aren&apos;t free, so each option is priced with the Black-Scholes model using that
-            day&apos;s VIX. That ignores skew (crash protection usually costs extra) and intraday swings, so treat results
-            as estimates. Real fills will differ.
+            day&apos;s VIX (or a share of it, under Option prices). That ignores skew (crash protection usually costs
+            extra) and intraday swings, so treat results as estimates. Pricing at the full VIX is the optimistic case: the
+            VIX usually runs above how much SPY actually moves, which flatters selling options. Real fills will differ.
           </li>
           <li>
             Same-day trades open at the open with yesterday&apos;s VIX and settle at the close. Longer trades open at the
             close and are checked once a day, so a stop can fill worse than shown. A new trade opens at the close the last one
-            ends (the live bot can only trade during the session, so it opens the next morning instead).
+            ends, like the live bot rolling in the last minutes of the day. The simulator doesn&apos;t skip news days or
+            apply the bot&apos;s $150 minimum credit.
           </li>
           <li>
-            The martingale sizes up after each loss until it hits your limit or can&apos;t afford the next trade. When it
-            can&apos;t afford one contract, the account is counted as bust and stops trading.
+            The martingale sizes up after each loss (the next level, or double) until it runs out of levels or hits your
+            doubling limit, then starts over. If it can&apos;t afford the size it wants it goes all-in, and when it can&apos;t
+            afford one contract the account is counted as bust and stops trading.
           </li>
           <li>Paper money only. This is a learning tool, not investment advice.</li>
         </ul>
@@ -496,15 +530,19 @@ function TradeRow({ t }: { t: CondorTrade }) {
   );
 }
 
-/** Number of losing streaks at least `k` long. */
-function timesSeen(trades: CondorTrade[], k: number): string {
+/** The length of every losing streak, in order. */
+function losingStreaks(trades: CondorTrade[]): number[] {
+  const out: number[] = [];
   let run = 0;
-  let count = 0;
   for (const t of trades) {
-    run = t.pnl < 0 ? run + 1 : 0;
-    if (run === k) count++;
+    if (t.pnl < 0) run++;
+    else if (run) {
+      out.push(run);
+      run = 0;
+    }
   }
-  return count.toLocaleString();
+  if (run) out.push(run);
+  return out;
 }
 
 /** One row per day with both accounts (a bust account stays flat), downsampled so long ranges stay quick to draw. */

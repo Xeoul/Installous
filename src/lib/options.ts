@@ -1,6 +1,7 @@
-// Paper-tests SPY (S&P 500 ETF) iron condors over historical daily data, with either a
-// fixed size or martingale sizing (double the size after every loss, back to
-// the base size after a win). Real historical option prices aren't free, so
+// Paper-tests SPY (S&P 500 ETF) iron condors over historical daily data, with
+// either a fixed size or martingale sizing (a level ladder such as 1, 2, 5,
+// 10, 25 contracts, or doubling after every loss; back to the start after a
+// win). Real historical option prices aren't free, so
 // each option is priced with Black-Scholes using the VIX as its volatility.
 // That's an estimate: it ignores skew and intraday moves, and real fills
 // differ. It's good enough to show how a strategy and its sizing behave over
@@ -49,6 +50,11 @@ export interface CondorRules {
   feePerLeg: number;
   /** Price given up per two-leg spread each time you trade it, in dollars per share. */
   slippage: number;
+  /**
+   * Options priced at this share of the VIX (1 = at the VIX). Very short-dated
+   * options often trade below the VIX, so lower values stress-test the edge.
+   */
+  ivScale: number;
 }
 
 export const DEFAULT_RULES: CondorRules = {
@@ -65,6 +71,7 @@ export const DEFAULT_RULES: CondorRules = {
   levels: [1, 2, 5, 10, 25],
   feePerLeg: 0.04,
   slippage: 0.01,
+  ivScale: 1,
 };
 
 export interface Condor {
@@ -244,91 +251,144 @@ export function sizeFor(
   return { contracts: rules.contracts * 2 ** streak, streak };
 }
 
-export function simulateCondors(bars: IndexBar[], rules: CondorRules): CondorResult {
-  const trades: CondorTrade[] = [];
-  const curve: { date: string; equity: number }[] = [];
-  let equity = rules.startCash;
-  let streak = 0;
-  let bust: string | null = null;
-  const fees = (contracts: number) => 4 * rules.feePerLeg * contracts;
+/** One condor in a plan: when it opened and closed, its strikes, and what it made per share. */
+export interface PlannedTrade {
+  opened: string;
+  closed: string;
+  spot: number;
+  vix: number;
+  condor: Condor;
+  exit: CondorTrade["exit"];
+  /** Per share at the close, before fees: credit less what was owed, or less the cost to buy it back early. */
+  perShare: number;
+}
 
-  const settle = (t: Omit<CondorTrade, "pnl" | "equityAfter" | "closed" | "exit">, closed: string, exit: CondorTrade["exit"], perShare: number, closeFees: number) => {
-    const pnl = perShare * MULTIPLIER * t.contracts - fees(t.contracts) - closeFees;
-    equity += pnl;
-    trades.push({ ...t, closed, exit, pnl, equityAfter: equity });
-    streak = pnl < 0 ? streak + 1 : 0;
-  };
+/**
+ * The strategy's trades, independent of position size: each day either nothing
+ * happens, a condor opens, an open condor is marked at the close, or it closes.
+ * Sizing never changes which trades happen (only how many contracts, or a stop
+ * when the account can't cover one), so one plan serves every sizing rule.
+ */
+export type PlanEvent =
+  | { kind: "idle"; date: string }
+  | { kind: "open"; trade: PlannedTrade }
+  | { kind: "mark"; date: string; kept: number }
+  | { kind: "close"; date: string };
 
-  /** Size a new trade, or report the account can't afford one. */
-  const open = (date: string, spot: number, vix: number, condor: Condor) => {
-    const next = sizeFor(rules, streak);
-    streak = next.streak;
-    const margin = (condor.putShort - condor.putLong - condor.credit) * MULTIPLIER + fees(1);
-    const affordable = Math.floor(equity / margin);
-    if (affordable < 1) {
-      bust = date;
-      return null;
-    }
-    const contracts = Math.min(next.contracts, affordable);
-    return { ...condor, opened: date, spot, vix, contracts, streak, capped: contracts < next.contracts };
-  };
+export interface TradePlan {
+  start: string;
+  events: PlanEvent[];
+}
 
+export function planTrades(
+  bars: IndexBar[],
+  rules: Pick<CondorRules, "dte" | "shortDelta" | "evenMoney" | "width" | "slippage" | "takeProfit" | "stopLoss"> & { ivScale?: number },
+): TradePlan {
+  const events: PlanEvent[] = [];
+  const iv = (bar: IndexBar) => (bar.vix / 100) * (rules.ivScale ?? 1);
   if (rules.dte === 0) {
     // Same-day condors: open at the open (priced with the VIX known at the open,
     // i.e. yesterday's close) and settle at the close.
-    for (let i = 1; i < bars.length && !bust; i++) {
+    for (let i = 1; i < bars.length; i++) {
       const bar = bars[i];
-      const vol = bars[i - 1].vix / 100;
-      const condor = buildCondor(bar.open, OPEN_TO_CLOSE, vol, rules);
-      if (condor.credit >= MIN_CREDIT) {
-        const t = open(bar.date, bar.open, bars[i - 1].vix, condor);
-        if (t) settle(t, bar.date, "expired", t.credit - settlement(t, bar.close), 0);
-      }
-      curve.push({ date: bar.date, equity });
-    }
-  } else {
-    let i = 0;
-    curve.push({ date: bars[0].date, equity });
-    while (i < bars.length - 1 && !bust) {
-      const e = expiryIndex(bars, i, rules.dte);
-      if (e === null) break;
-      const vol = bars[i].vix / 100;
-      const condor = buildCondor(bars[i].close, (e - i) / YEAR, vol, rules);
-      const t = condor.credit >= MIN_CREDIT ? open(bars[i].date, bars[i].close, bars[i].vix, condor) : null;
-      if (!t) {
-        i++;
-        curve.push({ date: bars[i].date, equity });
+      const condor = buildCondor(bar.open, OPEN_TO_CLOSE, iv(bars[i - 1]), rules);
+      if (condor.credit < MIN_CREDIT) {
+        events.push({ kind: "idle", date: bar.date });
         continue;
       }
-      // Mark the open trade at each close until it's closed or expires.
-      let j = i + 1;
-      for (; j <= e; j++) {
-        const bar = bars[j];
-        if (j === e) {
-          settle(t, bar.date, "expired", t.credit - settlement(t, bar.close), 0);
-          curve.push({ date: bar.date, equity });
-          break;
-        }
-        const cost = condorValue(t, bar.close, (e - j) / YEAR, bar.vix / 100) + 2 * rules.slippage;
-        const kept = t.credit - cost;
-        const exit = rules.takeProfit !== null && kept >= rules.takeProfit * t.credit
-          ? "profit"
-          : rules.stopLoss !== null && -kept >= rules.stopLoss * t.credit
-            ? "stop"
-            : null;
-        if (exit) {
-          settle(t, bar.date, exit, kept, fees(t.contracts));
-          curve.push({ date: bar.date, equity });
-          break;
-        }
-        curve.push({ date: bar.date, equity: equity + kept * MULTIPLIER * t.contracts - fees(t.contracts) });
-      }
-      // The next condor opens at the close of the day this one ended.
-      i = Math.min(j, e);
+      const perShare = condor.credit - settlement(condor, bar.close);
+      events.push({ kind: "open", trade: { opened: bar.date, closed: bar.date, spot: bar.open, vix: bars[i - 1].vix, condor, exit: "expired", perShare } });
+      events.push({ kind: "close", date: bar.date });
     }
+    return { start: bars[1]?.date ?? bars[0]?.date ?? "", events };
   }
 
+  let i = 0;
+  while (i < bars.length - 1) {
+    const e = expiryIndex(bars, i, rules.dte);
+    if (e === null) break;
+    const condor = buildCondor(bars[i].close, (e - i) / YEAR, iv(bars[i]), rules);
+    if (condor.credit < MIN_CREDIT) {
+      i++;
+      events.push({ kind: "idle", date: bars[i].date });
+      continue;
+    }
+    const trade: PlannedTrade = { opened: bars[i].date, closed: bars[e].date, spot: bars[i].close, vix: bars[i].vix, condor, exit: "expired", perShare: 0 };
+    events.push({ kind: "open", trade });
+    // Mark the condor at each close until it's closed early or expires.
+    let j = i + 1;
+    for (; j <= e; j++) {
+      const bar = bars[j];
+      if (j === e) {
+        trade.perShare = condor.credit - settlement(condor, bar.close);
+        events.push({ kind: "close", date: bar.date });
+        break;
+      }
+      const kept = condor.credit - (condorValue(condor, bar.close, (e - j) / YEAR, iv(bar)) + 2 * rules.slippage);
+      const exit =
+        rules.takeProfit !== null && kept >= rules.takeProfit * condor.credit
+          ? "profit"
+          : rules.stopLoss !== null && -kept >= rules.stopLoss * condor.credit
+            ? "stop"
+            : null;
+      if (exit) {
+        Object.assign(trade, { closed: bar.date, exit, perShare: kept });
+        events.push({ kind: "close", date: bar.date });
+        break;
+      }
+      events.push({ kind: "mark", date: bar.date, kept });
+    }
+    // The next condor opens at the close of the day this one ended.
+    i = Math.min(j, e);
+  }
+  return { start: bars[0]?.date ?? "", events };
+}
+
+/** Run a plan with a sizing rule: contracts per trade, the equity curve, and the stats. */
+export function sizePlan(plan: TradePlan, rules: CondorRules): CondorResult {
+  const trades: CondorTrade[] = [];
+  const curve: { date: string; equity: number }[] = rules.dte === 0 ? [] : [{ date: plan.start, equity: rules.startCash }];
+  let equity = rules.startCash;
+  let streak = 0;
+  let bust: string | null = null;
+  let open: Omit<CondorTrade, "pnl" | "equityAfter" | "closed" | "exit"> | null = null;
+  let planned: PlannedTrade | null = null;
+  const fees = (contracts: number) => 4 * rules.feePerLeg * contracts;
+
+  for (const ev of plan.events) {
+    if (ev.kind === "idle") {
+      curve.push({ date: ev.date, equity });
+    } else if (ev.kind === "open") {
+      const next = sizeFor(rules, streak);
+      streak = next.streak;
+      const margin = maxLossPerShare(ev.trade.condor) * MULTIPLIER + fees(1);
+      const affordable = Math.floor(equity / margin);
+      if (affordable < 1) {
+        bust = ev.trade.opened;
+        curve.push({ date: ev.trade.opened, equity });
+        break;
+      }
+      const contracts = Math.min(next.contracts, affordable);
+      planned = ev.trade;
+      open = { ...ev.trade.condor, opened: ev.trade.opened, spot: ev.trade.spot, vix: ev.trade.vix, contracts, streak, capped: contracts < next.contracts };
+    } else if (ev.kind === "mark" && open) {
+      curve.push({ date: ev.date, equity: equity + ev.kept * MULTIPLIER * open.contracts - fees(open.contracts) });
+    } else if (ev.kind === "close" && open && planned) {
+      // Closing early means buying the condor back: a second round of fees.
+      const pnl = planned.perShare * MULTIPLIER * open.contracts - fees(open.contracts) * (planned.exit === "expired" ? 1 : 2);
+      equity += pnl;
+      trades.push({ ...open, closed: planned.closed, exit: planned.exit, pnl, equityAfter: equity });
+      streak = pnl < 0 ? streak + 1 : 0;
+      curve.push({ date: ev.date, equity });
+      open = null;
+      planned = null;
+    }
+  }
   return { rules, curve, trades, stats: statsFor(rules, curve, trades, bust) };
+}
+
+export function simulateCondors(bars: IndexBar[], rules: CondorRules): CondorResult {
+  return sizePlan(planTrades(bars, rules), rules);
 }
 
 function statsFor(rules: CondorRules, curve: CondorResult["curve"], trades: CondorTrade[], bust: string | null): CondorStats {
@@ -360,30 +420,15 @@ function statsFor(rules: CondorRules, curve: CondorResult["curve"], trades: Cond
  * The martingale ladder: what each loss in a row asks you to bet next, and
  * how much you've lost by then if every trade loses its maximum.
  */
-export function doublingLadder(
-  condor: Condor,
-  rules: Pick<CondorRules, "contracts" | "startCash" | "feePerLeg"> & { levels?: number[] | null },
-  winRate: number | null,
-  trades: number,
-) {
+export function doublingLadder(condor: Condor, rules: Pick<CondorRules, "contracts" | "startCash" | "feePerLeg"> & { levels?: number[] | null }) {
   const maxLoss = maxLossPerShare(condor) * MULTIPLIER + 4 * rules.feePerLeg;
   const steps = rules.levels?.length ? rules.levels.length - 1 : 12;
-  const rows: { losses: number; contracts: number; atRisk: number; lostSoFar: number; affordable: boolean; chance: number | null; expected: number | null }[] = [];
+  const rows: { losses: number; contracts: number; atRisk: number; lostSoFar: number; affordable: boolean }[] = [];
   let lost = 0;
   for (let k = 0; k <= steps; k++) {
     const contracts = rules.levels?.length ? rules.levels[k] : rules.contracts * 2 ** k;
     const atRisk = contracts * maxLoss;
-    const q = winRate === null ? null : 1 - winRate / 100;
-    rows.push({
-      losses: k,
-      contracts,
-      atRisk,
-      lostSoFar: lost,
-      affordable: atRisk + lost <= rules.startCash,
-      chance: q === null ? null : q ** k,
-      // Rough count of times you'd hit k losses in a row over this many trades.
-      expected: q === null || k === 0 ? null : trades * (1 - q) * q ** k,
-    });
+    rows.push({ losses: k, contracts, atRisk, lostSoFar: lost, affordable: atRisk + lost <= rules.startCash });
     lost += atRisk;
     if (lost > rules.startCash * 4) break;
   }
@@ -395,5 +440,5 @@ export function nextCondor(bars: IndexBar[], rules: CondorRules): { date: string
   const last = bars.at(-1);
   if (!last) return null;
   const t = rules.dte === 0 ? OPEN_TO_CLOSE : Math.max(1, Math.round((rules.dte * 5) / 7)) / YEAR;
-  return { date: last.date, spot: last.close, vix: last.vix, condor: buildCondor(last.close, t, last.vix / 100, rules) };
+  return { date: last.date, spot: last.close, vix: last.vix, condor: buildCondor(last.close, t, (last.vix / 100) * (rules.ivScale ?? 1), rules) };
 }

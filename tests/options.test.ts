@@ -6,10 +6,13 @@ import {
   doublingLadder,
   normCdf,
   normInv,
+  planTrades,
   settlement,
+  sizePlan,
   simulateCondors,
   sizeFor,
   type CondorRules,
+  type CondorTrade,
   type IndexBar,
 } from "@/lib/options";
 
@@ -121,6 +124,27 @@ describe("simulateCondors", () => {
     expect(fixed.trades.length).toBeGreaterThan(mart.trades.length);
   });
 
+  it("sizing changes only the contracts: both accounts take the same trades", () => {
+    // Calm days with a big move every fifth day, so some condors lose.
+    const closes = Array.from({ length: 80 }, (_, i) => 500 + (i % 5 === 4 ? (i % 10 === 4 ? 20 : -20) : 0));
+    const plan = planTrades(bars(closes), rules({ dte: 1, evenMoney: true, width: 4 }));
+    const fixed = sizePlan(plan, rules({ dte: 1, sizing: "fixed" }));
+    const mart = sizePlan(plan, rules({ dte: 1, sizing: "martingale", levels: [1, 2, 5, 10, 25], startCash: 1_000_000 }));
+    const key = (t: CondorTrade) => [t.opened, t.closed, t.putShort, t.callShort, t.credit].join();
+    expect(mart.trades.map(key)).toEqual(fixed.trades.map(key));
+    expect(fixed.trades.every((t) => t.contracts === 1)).toBe(true);
+    expect(mart.trades.some((t) => t.contracts > 1)).toBe(true);
+    // Per contract, the results match.
+    mart.trades.forEach((t, i) => expect(t.pnl / t.contracts).toBeCloseTo(fixed.trades[i].pnl, 6));
+  });
+
+  it("cheaper option prices mean less credit for the same strikes", () => {
+    const b = bars(Array(30).fill(500));
+    const credit = (ivScale: number) =>
+      planTrades(b, { ...rules({ dte: 1 }), ivScale }).events.reduce((sum, e) => sum + (e.kind === "open" ? e.trade.condor.credit : 0), 0);
+    expect(credit(0.8)).toBeLessThan(credit(1));
+  });
+
   it("takes profit early on multi-day trades", () => {
     const r = simulateCondors(bars(Array(60).fill(500)), rules({ dte: 30, takeProfit: 0.5, sizing: "fixed" }));
     expect(r.trades.length).toBeGreaterThan(1);
@@ -139,10 +163,10 @@ describe("simulateCondors", () => {
 describe("doublingLadder", () => {
   it("shows when the next bet outgrows the account", () => {
     const condor = { putLong: 4940, putShort: 4950, callShort: 5050, callLong: 5060, credit: 0.5 };
-    const rows = doublingLadder(condor, { contracts: 1, startCash: 10_000, feePerLeg: 0, levels: null }, 90, 1000);
+    const rows = doublingLadder(condor, { contracts: 1, startCash: 10_000, feePerLeg: 0, levels: null });
     expect(rows[0]).toMatchObject({ losses: 0, contracts: 1, atRisk: 950, lostSoFar: 0, affordable: true });
     expect(rows[3]).toMatchObject({ contracts: 8, atRisk: 7600, lostSoFar: 950 * 7, affordable: false });
-    const lv = doublingLadder(condor, { contracts: 1, startCash: 10_000, feePerLeg: 0, levels: [1, 2, 5, 10, 25] }, 90, 1000);
+    const lv = doublingLadder(condor, { contracts: 1, startCash: 10_000, feePerLeg: 0, levels: [1, 2, 5, 10, 25] });
     expect(lv.map((r) => r.contracts)).toEqual([1, 2, 5, 10, 25]);
   });
 });
