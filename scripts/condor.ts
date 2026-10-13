@@ -1,14 +1,14 @@
-// Advance the SPY condor bot one step: settle yesterday's or today's trade
-// at the official close, and open today's same-day iron condor at real
-// quotes once the market has been open a few minutes. The deploy workflow
-// runs this every 30 minutes during market hours.
+// Advance the SPY condor bot one step: settle its trade at the official close
+// on the expiration day, and open the next iron condor at real quotes once
+// the market has been open a few minutes. The deploy workflow runs this
+// every 30 minutes during market hours.
 //
 //   FUND_DIR   where condor.json (the bot's state) lives; the workflow points
 //              this at a checkout of the `fund-data` branch.
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
-import { BOT_RULES, stepBot, type BotState, type Chain } from "../src/lib/condor-bot";
-import { getDailyCloses, getNearestChain } from "../src/lib/market";
+import { BOT_RULES, nyDate, stepBot, type BotState, type Chain } from "../src/lib/condor-bot";
+import { getChain, getDailyCloses } from "../src/lib/market";
 
 const FUND_DIR = process.env.FUND_DIR ?? path.join("data", "fund");
 const STATE_FILE = path.join(FUND_DIR, "condor.json");
@@ -25,15 +25,19 @@ async function readState(): Promise<BotState | null> {
 
 async function main() {
   const prev = await readState();
+  const now = new Date();
+  const today = nyDate(now);
+  // Same-day: today's expiration. Next-day: the first one after today.
+  const from = BOT_RULES.expiryDays === 0 ? today : new Date(Date.parse(`${today}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
   let chain: Chain | null = null;
   try {
-    chain = await getNearestChain(BOT_RULES.ticker);
+    chain = await getChain(BOT_RULES.ticker, from);
   } catch (err) {
     console.warn(`No option chain: ${(err as Error).message}`);
   }
   const closes = Object.fromEntries((await getDailyCloses(BOT_RULES.ticker, 0.1)).map((c) => [c.date, Math.round(c.close * 100) / 100]));
 
-  const { state, events } = stepBot(prev, { now: new Date(), chain, closes });
+  const { state, events } = stepBot(prev, { now, chain, closes });
 
   await mkdir(FUND_DIR, { recursive: true });
   await writeFile(STATE_FILE, JSON.stringify(state, null, 2) + "\n");

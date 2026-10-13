@@ -20,8 +20,13 @@ export type Sizing = "fixed" | "martingale";
 export interface CondorRules {
   /** Calendar days to expiration; 0 opens at the open and settles at the close. */
   dte: number;
-  /** Delta of the short put and short call, e.g. 0.1. */
+  /** Delta of the short put and short call, e.g. 0.1 (ignored with evenMoney). */
   shortDelta: number;
+  /**
+   * Place the short strikes so the credit is about half the wing width: a win
+   * pays about what a loss costs (e.g. $4 wings, ~$2 credit: +$200 / -$200).
+   */
+  evenMoney: boolean;
   /** Distance between each short strike and its long wing, in dollars. */
   width: number;
   /** Close early once this share of the credit is kept (0.5 = 50%); null holds to expiry. */
@@ -41,9 +46,10 @@ export interface CondorRules {
 }
 
 export const DEFAULT_RULES: CondorRules = {
-  dte: 0,
+  dte: 1,
   shortDelta: 0.1,
-  width: 2,
+  evenMoney: true,
+  width: 4,
   takeProfit: null,
   stopLoss: null,
   contracts: 1,
@@ -160,15 +166,33 @@ export function condorValue(c: Omit<Condor, "credit">, spot: number, t: number, 
   return Math.max(0, puts) + Math.max(0, calls);
 }
 
-/** Pick strikes by delta and price the condor. */
-export function buildCondor(spot: number, t: number, vol: number, rules: Pick<CondorRules, "shortDelta" | "width" | "slippage">): Condor {
+/** Pick strikes (by delta, or for an even-money payoff) and price the condor. */
+export function buildCondor(
+  spot: number,
+  t: number,
+  vol: number,
+  rules: Pick<CondorRules, "shortDelta" | "width" | "slippage"> & { evenMoney?: boolean },
+): Condor {
   const width = Math.max(STRIKE_STEP, Math.round(rules.width / STRIKE_STEP) * STRIKE_STEP);
+  const price = (putShort: number, callShort: number): Condor => {
+    const strikes = { putLong: putShort - width, putShort, callShort, callLong: callShort + width };
+    // Selling two spreads, so slippage twice.
+    return { ...strikes, credit: condorValue(strikes, spot, t, vol) - 2 * rules.slippage };
+  };
+  if (rules.evenMoney) {
+    // Step the short strikes out from the money until the credit is closest to half the width.
+    const target = width / 2;
+    let best = price(Math.floor(spot / STRIKE_STEP) * STRIKE_STEP, Math.ceil(spot / STRIKE_STEP) * STRIKE_STEP);
+    for (let d = STRIKE_STEP; d <= spot * 0.2; d += STRIKE_STEP) {
+      const c = price(Math.floor((spot - d) / STRIKE_STEP) * STRIKE_STEP, Math.ceil((spot + d) / STRIKE_STEP) * STRIKE_STEP);
+      if (Math.abs(c.credit - target) < Math.abs(best.credit - target)) best = c;
+      if (c.credit < target) break; // credits only shrink from here
+    }
+    return best;
+  }
   const putShort = Math.floor(strikeForDelta("put", spot, rules.shortDelta, t, vol) / STRIKE_STEP) * STRIKE_STEP;
   const callShort = Math.ceil(strikeForDelta("call", spot, rules.shortDelta, t, vol) / STRIKE_STEP) * STRIKE_STEP;
-  const strikes = { putLong: putShort - width, putShort, callShort, callLong: callShort + width };
-  // Selling two spreads, so slippage twice.
-  const credit = condorValue(strikes, spot, t, vol) - 2 * rules.slippage;
-  return { ...strikes, credit };
+  return price(putShort, callShort);
 }
 
 /** Dollars per share owed at expiration. */

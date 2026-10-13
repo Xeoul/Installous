@@ -90,7 +90,8 @@ export default function OptionsLab() {
         </div>
         <p className="mt-1 max-w-3xl text-text-2">
           Sell SPY iron condors with the martingale system: double the size after every loss, go back to the base size
-          after a win. The live bot trades one every market day; the simulator below replays the same idea over 20 years.
+          after a win. The live bot holds one next-day condor at a time with real quotes; the simulator below replays the
+          same idea over 20 years.
         </p>
       </div>
 
@@ -109,8 +110,24 @@ export default function OptionsLab() {
               <option value={45}>45 days</option>
             </select>
           </Field>
-          <Field label="Short strikes" hint="Roughly the chance each short strike ends in the money. Lower = further away, less credit">
-            <select className="input w-full" value={s.shortDelta} onChange={(e) => set("shortDelta", Number(e.target.value))}>
+          <Field
+            label="Short strikes"
+            hint={
+              s.evenMoney
+                ? "Placed so the credit is about half the wing width: a win pays about what a full loss costs"
+                : "Roughly the chance each short strike ends in the money. Lower = further away, less credit"
+            }
+          >
+            <select
+              className="input w-full"
+              value={s.evenMoney ? "even" : s.shortDelta}
+              onChange={(e) =>
+                setS((cur) =>
+                  e.target.value === "even" ? { ...cur, evenMoney: true } : { ...cur, evenMoney: false, shortDelta: Number(e.target.value) },
+                )
+              }
+            >
+              <option value="even">Even money (win ≈ loss)</option>
               {[0.05, 0.1, 0.16, 0.2, 0.3].map((d) => (
                 <option key={d} value={d}>
                   {Math.round(d * 100)} delta (~{Math.round(d * 100)}% chance per side)
@@ -120,7 +137,7 @@ export default function OptionsLab() {
           </Field>
           <Field label="Wing width" hint="Distance to the protective long options">
             <select className="input w-full" value={s.width} onChange={(e) => set("width", Number(e.target.value))}>
-              {[1, 2, 3, 5, 10].map((w) => (
+              {[1, 2, 3, 4, 5, 10].map((w) => (
                 <option key={w} value={w}>
                   ${w} (up to ${(w * 100).toLocaleString()} per contract)
                 </option>
@@ -226,17 +243,27 @@ export default function OptionsLab() {
       </Card>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-        <Card title="Why doubling down breaks here" className="lg:col-span-3">
+        <Card title="How the doubling plays out" className="lg:col-span-3">
           {next && maxLoss !== null && f ? (
             <>
-              <p className="text-sm text-text-2">
-                Martingale assumes each win pays as much as each loss costs, like red or black at roulette. An iron condor
-                wins small and loses big: this one collects about <strong className="text-text">{usd0(next.condor.credit * 100)}</strong>{" "}
-                but can lose up to <strong className="text-text">{usd0(maxLoss)}</strong>. After one full loss, a doubled
-                win only brings back {usd0(next.condor.credit * 200)}. You&apos;d need about{" "}
-                <strong className="text-text">{Math.ceil(maxLoss / Math.max(next.condor.credit * 100, 1))}×</strong> the size to
-                win it back in one trade.
-              </p>
+              {maxLoss <= next.condor.credit * 100 * 1.3 ? (
+                <p className="text-sm text-text-2">
+                  Martingale needs each win to pay about what each loss costs, like red or black at roulette. This condor does:
+                  it collects about <strong className="text-text">{usd0(next.condor.credit * 100)}</strong> and can lose up to{" "}
+                  <strong className="text-text">{usd0(maxLoss)}</strong>, so one doubled win wins back the last loss plus a
+                  bit. The catch is the losing streaks: each one doubles the next bet, and the table shows how fast that
+                  outgrows the account.
+                </p>
+              ) : (
+                <p className="text-sm text-text-2">
+                  Martingale assumes each win pays as much as each loss costs, like red or black at roulette. This iron condor
+                  wins small and loses big: it collects about <strong className="text-text">{usd0(next.condor.credit * 100)}</strong>{" "}
+                  but can lose up to <strong className="text-text">{usd0(maxLoss)}</strong>. After one full loss, a doubled
+                  win only brings back {usd0(next.condor.credit * 200)}. You&apos;d need about{" "}
+                  <strong className="text-text">{Math.ceil(maxLoss / Math.max(next.condor.credit * 100, 1))}×</strong> the size to
+                  win it back in one trade.
+                </p>
+              )}
               <div className="-mx-5 mt-4 overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="border-b border-border text-left text-xs text-text-2">
@@ -352,7 +379,8 @@ export default function OptionsLab() {
           </li>
           <li>
             Same-day trades open at the open with yesterday&apos;s VIX and settle at the close. Longer trades open at the
-            close and are checked once a day, so a stop can fill worse than shown. A new trade opens when the last one ends.
+            close and are checked once a day, so a stop can fill worse than shown. A new trade opens at the close the last one
+            ends (the live bot can only trade during the session, so it opens the next morning instead).
           </li>
           <li>
             The martingale sizes up after each loss until it hits your limit or can&apos;t afford the next trade. When it

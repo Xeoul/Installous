@@ -47,7 +47,7 @@ export function CondorBot() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Tile label="Account" value={usd0(bot.equity)} sub={<Change value={(bot.equity / r.startCash - 1) * 100} />} />
             <Tile
-              label={bot.open ? "Today's trade" : "Last trade"}
+              label={bot.open ? "Open trade" : "Last trade"}
               value={
                 bot.open
                   ? `${bot.open.contracts}× for ${usd0(bot.open.credit * 100 * bot.open.contracts)}`
@@ -58,11 +58,11 @@ export function CondorBot() {
               sub={
                 bot.open ? (
                   <span className="text-text-2">
-                    {strikes(bot.open)} · settles at 4:00pm ET
+                    {strikes(bot.open)} · settles {fmtDate(bot.open.expiry ?? bot.open.date)} at 4:00pm ET
                   </span>
                 ) : bot.trades[0] ? (
                   <span className="text-text-2">
-                    {fmtDate(bot.trades[0].date)} · SPY closed {bot.trades[0].close?.toFixed(2)}
+                    {fmtDate(bot.trades[0].expiry ?? bot.trades[0].date)} · SPY closed {bot.trades[0].close?.toFixed(2)}
                   </span>
                 ) : (
                   <span className="text-text-2">Opens after 9:45am ET on market days</span>
@@ -103,7 +103,7 @@ export function CondorBot() {
             <ul className="mt-4 divide-y divide-border text-sm">
               {bot.trades.slice(0, 10).map((t) => (
                 <li key={t.date} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-2">
-                  <span className="flex-1 text-xs text-muted sm:w-24 sm:flex-none">{fmtDate(t.date)}</span>
+                  <span className="flex-1 text-xs text-muted sm:w-24 sm:flex-none">{fmtDate(t.expiry ?? t.date)}</span>
                   <span className="num order-last w-full text-xs text-text-2 sm:order-none sm:w-auto sm:min-w-0 sm:flex-1">
                     {strikes(t)} · SPY {t.spot.toFixed(2)} → {t.close?.toFixed(2)}
                   </span>
@@ -118,10 +118,15 @@ export function CondorBot() {
           )}
 
           <p className="mt-4 text-xs text-muted">
-            Every market day after 9:45am ET it sells one same-day SPY iron condor: the strikes nearest {Math.round(r.shortDelta * 100)} delta
-            with ${r.width} wings, filled at the quoted mid less ${r.slippage.toFixed(2)} per spread (Yahoo Finance quotes, which can be
-            delayed), and settled at the 4:00pm close. It starts with {usd0(r.startCash)}, trades {r.contracts} contract after a win and
-            doubles after every loss{r.maxDoublings === null ? " with no limit" : `, up to ${r.maxDoublings} times`}. Paper money only.
+            After 9:45am ET it sells a SPY iron condor expiring {r.expiryDays === 0 ? "the same day" : "the next trading day"} with ${r.width}{" "}
+            wings,{" "}
+            {r.evenMoney
+              ? `short strikes placed so it collects about $${(r.width * 50).toFixed(0)}: a win pays about what a full loss costs`
+              : `short strikes nearest ${Math.round(r.shortDelta * 100)} delta`}
+            . It fills at the quoted mid less ${r.slippage.toFixed(2)} per spread (Yahoo Finance quotes, which can be delayed), holds to
+            expiration, and settles at the 4:00pm close. One trade at a time, so the next opens the morning after one settles. It starts
+            with {usd0(r.startCash)}, trades {r.contracts} contract after a win and doubles after every loss
+            {r.maxDoublings === null ? " with no limit" : `, up to ${r.maxDoublings} times`}. Paper money only.
           </p>
         </>
       )}
