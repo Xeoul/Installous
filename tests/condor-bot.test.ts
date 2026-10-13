@@ -46,6 +46,24 @@ describe("condorFromChain", () => {
     expect(Math.abs(c.credit - 2)).toBeLessThan(0.35);
   });
 
+  it("never prices a condor above its wing width from stale quotes", () => {
+    // Stale at-the-money quotes: the only condor on offer "pays" more than the $4 wing.
+    const q = (strike: number, bid: number, ask: number) => ({ strike, bid, ask });
+    const bad: Chain = {
+      expiry: "2026-10-14",
+      spot: 500,
+      marketOpen: true,
+      puts: [q(496, 0.1, 0.2), q(500, 3, 3.2)],
+      calls: [q(500, 3, 3.2), q(504, 0.1, 0.2)],
+    };
+    expect(condorFromChain(bad, BOT_RULES)).toBeNull();
+    expect(condorFromChain(bad, { ...BOT_RULES, evenMoney: false })).toBeNull();
+    // So the bot skips the day instead of calling itself bust.
+    const s = step(start(), "2026-10-13", "15:40", bad);
+    expect(s.bust).toBeNull();
+    expect(s.open).toBeNull();
+  });
+
   it("can still pick strikes by delta", () => {
     const c = condorFromChain(chain("2026-10-14"), { ...BOT_RULES, evenMoney: false, shortDelta: 0.1, width: 2 })!;
     expect(c.credit).toBeLessThan(1);
@@ -119,17 +137,51 @@ describe("stepBot", () => {
     expect(s.open).toMatchObject({ level: 0, contracts: 1 });
   });
 
+  it("sizes a later open from the condor it rolled earlier in the day", () => {
+    let s = step(start(), "2026-10-13", "15:40", chain("2026-10-14"));
+    const first = s.open!;
+    // At 3:27 the credit is under the minimum, so it rolls but doesn't open.
+    const down = first.putLong - 5;
+    s = step({ ...s, rules: { ...s.rules, minCredit: 99 } }, "2026-10-14", "15:27", chain("2026-10-15", down));
+    expect(s.open).toBeNull();
+    expect(s.settling!.rolled!.pnl).toBeLessThan(0);
+    // At 3:35 it opens, counting the rolled loss against the cash on hand.
+    const low = { ...s, rules: { ...BOT_RULES }, equity: 250 + Math.abs(s.settling!.rolled!.pnl) };
+    const opened = step(low, "2026-10-14", "15:35", chain("2026-10-15", down));
+    const margin = (opened.open!.callLong - opened.open!.callShort - opened.open!.credit) * 100 + 4 * BOT_RULES.feePerLeg;
+    expect(opened.open!.contracts).toBe(Math.floor(250 / margin));
+    expect(opened.open!.contracts).toBe(1);
+  });
+
+  it("never drops a condor still waiting on its close", () => {
+    let s = step(start(), "2026-10-13", "15:40", chain("2026-10-14"));
+    s = step(s, "2026-10-14", "15:40", chain("2026-10-15"));
+    const waiting = s.settling!;
+    // The 14th's close never arrives; on the 15th the open condor stays put.
+    s = step(s, "2026-10-15", "15:40", chain("2026-10-16"));
+    expect(s.settling).toEqual(waiting);
+    expect(s.open).toMatchObject({ expiry: "2026-10-15" });
+    // Once the closes arrive, both settle and trading carries on.
+    s = step(s, "2026-10-16", "15:40", chain("2026-10-19"), { "2026-10-14": 500, "2026-10-15": 500 });
+    expect(s.trades.map((t) => t.expiry)).toEqual(["2026-10-15", "2026-10-14"]);
+    expect(s.open).toMatchObject({ expiry: "2026-10-19" });
+  });
+
   it("climbs the ladder 1, 2, 5, 10, 25 and starts over after a loss on level 5", () => {
     let s = start(1_000_000);
     const sizes: number[] = [];
     const days = ["2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-19", "2026-10-20", "2026-10-21"];
+    const closes: Record<string, number> = {};
     for (let i = 0; i < days.length - 1; i++) {
-      // Each day near the close, SPY is far below the expiring condor: every trade loses.
+      // Each day near the close, SPY is far below the expiring condor and closes there: every trade loses.
       const spot = s.open ? s.open.putLong - 5 : 500;
-      s = step(s, days[i], "15:40", chain(days[i + 1], spot));
+      s = step(s, days[i], "15:40", chain(days[i + 1], spot), closes);
+      closes[days[i]] = spot;
       sizes.push(s.open!.contracts);
     }
     expect(sizes).toEqual([1, 2, 5, 10, 25, 1]);
+    // Every settled condor is on the record.
+    expect(s.trades).toHaveLength(days.length - 3);
   });
 
   it("settles from the official close when a late run was missed, and sets the level from it", () => {

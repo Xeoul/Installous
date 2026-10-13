@@ -198,6 +198,7 @@ function evenMoneyCondor(chain: Chain, rules: BotRules) {
     const cl = cs && calls.get(cs.strike + rules.width);
     if (!ps || !cs || !pl || !cl || ps.bid <= 0 || cs.bid <= 0) continue;
     const credit = mid(ps) - mid(pl) + mid(cs) - mid(cl) - 2 * rules.slippage;
+    if (credit >= rules.width) continue; // impossible: stale or crossed quotes
     if (!best || Math.abs(credit - target) < Math.abs(best.credit - target)) best = { put: { short: ps, long: pl }, call: { short: cs, long: cl }, credit };
     if (credit < target) break;
   }
@@ -219,6 +220,8 @@ export function condorFromChain(chain: Chain, rules: BotRules) {
   }
   if (!put || !call) return null;
   const credit = mid(put.short) - mid(put.long) + mid(call.short) - mid(call.long) - 2 * rules.slippage;
+  // A condor can't pay more than its widest wing; quotes saying so are stale.
+  if (credit >= Math.max(put.short.strike - put.long.strike, call.long.strike - call.short.strike)) return null;
   return {
     putLong: put.long.strike,
     putShort: put.short.strike,
@@ -305,8 +308,12 @@ export function stepBot(prev: BotState | null, input: BotInput): { state: BotSta
   const openedToday = state.open?.date === today;
   const chain = input.chain;
   if (inWindow && !openedToday && !state.bust && chain?.marketOpen) {
-    let projected = 0;
-    if (state.open && state.open.expiry === today) {
+    // The expiring condor's expected result, for sizing: from this roll, or
+    // from an earlier step today that rolled it but didn't open (a skip).
+    let projected = state.settling?.rolled && state.settling.expiry === today ? state.settling.rolled.pnl : 0;
+    // An older condor still waiting on its close (a missing quote) holds the
+    // settling slot; keep today's open until it clears rather than drop it.
+    if (state.open && state.open.expiry === today && !state.settling) {
       // Today's condor is all but settled: size the next one from where SPY is now.
       projected = pnlAt(state.open, chain.spot, rules.feePerLeg);
       state.level = nextLevel(state.level, projected, rules.levels);
@@ -336,7 +343,7 @@ export function stepBot(prev: BotState | null, input: BotInput): { state: BotSta
         const wanted = rules.levels[state.level] ?? rules.levels[0];
         const margin = maxLossPerShare(condor) * MULTIPLIER + fees(rules, 1);
         // Cash after today's condor settles, roughly.
-        const affordable = Math.floor((state.equity + projected) / margin);
+        const affordable = margin > 0 ? Math.floor((state.equity + projected) / margin) : 0;
         if (affordable < 1) {
           state.bust = today;
           state.note = "Bust: the account can't cover one more condor.";
