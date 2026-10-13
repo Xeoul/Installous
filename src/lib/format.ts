@@ -3,16 +3,31 @@
 // which would show prices 100x too high, so convert to the main unit first.
 const MINOR_UNITS: Record<string, string> = { GBp: "GBP", GBX: "GBP", ZAc: "ZAR", ILA: "ILS" };
 
+// Building an Intl formatter is far slower than using one, and charts and tables
+// format thousands of values, so keep one per currency (null: not a code Intl knows).
+const currencyFormats = new Map<string, Intl.NumberFormat | null>();
+const plainFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+
+function currencyFormat(code: string): Intl.NumberFormat | null {
+  let f = currencyFormats.get(code);
+  if (f === undefined) {
+    try {
+      f = new Intl.NumberFormat("en-US", { style: "currency", currency: code, maximumFractionDigits: 2 });
+    } catch {
+      f = null;
+    }
+    currencyFormats.set(code, f);
+  }
+  return f;
+}
+
 export function money(x: number | null | undefined, currency = "USD"): string {
   if (x === null || x === undefined) return "—";
   const major = MINOR_UNITS[currency];
   const [value, code] = major ? [x / 100, major] : [x, currency];
-  try {
-    return value.toLocaleString("en-US", { style: "currency", currency: code, maximumFractionDigits: 2 });
-  } catch {
-    // Not a currency code Intl knows; show the number with the code instead of crashing.
-    return `${value.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${code}`;
-  }
+  const f = currencyFormat(code);
+  // Not a currency code Intl knows: show the number with the code instead of crashing.
+  return f ? f.format(value) : `${plainFormat.format(value)} ${code}`;
 }
 
 export function compact(x: number | null | undefined): string {

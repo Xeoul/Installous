@@ -16,6 +16,24 @@ export const FUND_SERIES: ChartSeries[] = [
   { key: "benchmark", label: "S&P 500 (SPY)", color: "var(--muted)", dash: "5 4" },
 ];
 
+// Recharts formats every point's date to lay out the axis, on every render, so
+// reuse one formatter per style and cache the labels.
+function dateFormatter(opts: Intl.DateTimeFormatOptions) {
+  const f = new Intl.DateTimeFormat("en-US", { ...opts, timeZone: "UTC" });
+  const cache = new Map<string, string>();
+  return (d: string) => {
+    let label = cache.get(d);
+    if (label === undefined) {
+      label = f.format(new Date(`${d}T12:00:00Z`));
+      cache.set(d, label);
+    }
+    return label;
+  };
+}
+const fmtMonthDay = dateFormatter({ month: "short", day: "numeric" });
+const fmtMonthYear = dateFormatter({ month: "short", year: "numeric" });
+const fmtMedium = dateFormatter({ dateStyle: "medium" });
+
 /** Value-over-time chart on one dollar axis, with a legend, hover values and a screen-reader table. */
 export function FundChart({
   history,
@@ -31,11 +49,7 @@ export function FundChart({
   /** Label the value axis in whole dollars, for values that move by less than $1k. */
   fineAxis?: boolean;
 }) {
-  const fmtDate = (d: string) =>
-    new Date(`${d}T12:00:00Z`).toLocaleDateString(
-      "en-US",
-      longRange ? { month: "short", year: "numeric", timeZone: "UTC" } : { month: "short", day: "numeric", timeZone: "UTC" },
-    );
+  const fmtDate = longRange ? fmtMonthYear : fmtMonthDay;
 
   if (history.length < 2) {
     return (
@@ -88,7 +102,7 @@ export function FundChart({
                 fontSize: 12,
               }}
               labelFormatter={(d) =>
-                new Date(`${String(d)}T12:00:00Z`).toLocaleDateString("en-US", { dateStyle: "medium", timeZone: "UTC" })
+                fmtMedium(String(d))
               }
               formatter={(v, name) => [money(Number(v)), labelOf.get(String(name)) ?? String(name)]}
             />
