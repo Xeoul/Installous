@@ -41,7 +41,9 @@ function saveView(v: View) {
   }
   viewListeners.forEach((cb) => cb());
 }
-const compactDollars = (v: number) => `$${(v / 1000).toFixed(Math.abs(v) < 10_000 ? 1 : 0)}k`;
+// "$25k", "$24.8k", "$25.25k": as many decimals as the ticks need, so small
+// moves on a large account don't all read "$25k".
+const compactDollars = (v: number) => `$${Number((v / 1000).toFixed(2))}k`;
 
 /**
  * The dashboard's headline card: switch between the AI Fund and the Options
@@ -169,7 +171,7 @@ function MiniChart({ history, series, caption }: { history: { date: string }[]; 
   if (history.length < 2) return null;
   return (
     <div className="mt-3">
-      <LineChart data={history} series={series} formatX={fmtMonthDay} formatY={compactDollars} formatValue={(v) => money(v)} yAxisWidth={44} height={150} caption={caption} />
+      <LineChart data={history} series={series} formatX={fmtMonthDay} formatY={compactDollars} formatValue={(v) => money(v)} yAxisWidth={52} height={150} caption={caption} />
     </div>
   );
 }
