@@ -167,6 +167,31 @@ describe("stepBot", () => {
     expect(s.open).toMatchObject({ expiry: "2026-10-19" });
   });
 
+  it("opens exactly one condor a day, sized by its level, however often it runs", () => {
+    const days = ["2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23"];
+    const ladder = BOT_RULES.levels;
+    let s = start(1_000_000);
+    const closes: Record<string, number> = {};
+    for (let i = 0; i < days.length - 1; i++) {
+      // Lose on even days and win on odd ones, so the level moves both ways.
+      const expiring = s.open;
+      const spot = !expiring ? 500 : i % 2 ? (expiring.putShort + expiring.callShort) / 2 : expiring.putLong - 5;
+      // Every step of the real schedule, twice over (duplicate runs).
+      for (const time of ["10:30", "15:27", "15:27", "15:35", "15:43", "15:51", "15:58", "16:20", "16:20"]) {
+        const settled = time >= "16:20" ? { ...closes, [days[i]]: spot } : closes;
+        s = step(s, days[i], time, time >= "16:20" ? null : chain(days[i + 1], spot), settled);
+      }
+      closes[days[i]] = spot;
+    }
+    const all = [...s.trades, ...(s.settling ? [s.settling] : []), ...(s.open ? [s.open] : [])];
+    const perDay = all.map((t) => t.date);
+    expect(perDay).toHaveLength(days.length - 1);
+    expect(new Set(perDay).size).toBe(perDay.length);
+    for (const t of all) expect(t.contracts).toBe(ladder[t.level]);
+    // The first opens at level 1; then each loss climbs the ladder and each win drops back to level 1.
+    expect([...s.trades].reverse().map((t) => t.contracts)).toEqual([1, 1, 2, 1, 2, 1, 2]);
+  });
+
   it("climbs the ladder 1, 2, 5, 10, 25 and starts over after a loss on level 5", () => {
     let s = start(1_000_000);
     const sizes: number[] = [];
