@@ -18,9 +18,11 @@ import {
   type IndexBar,
 } from "@/lib/options";
 
-const SERIES: ChartSeries[] = [
+const LEVELS = [1, 2, 5, 10, 25];
+
+const seriesFor = (levels: number[] | null): ChartSeries[] => [
   { key: "fixed", label: "Same size every trade", color: "var(--accent)" },
-  { key: "martingale", label: "Martingale (double after a loss)", color: "var(--series-2)" },
+  { key: "martingale", label: levels ? `Martingale (levels ${levels.join("·")})` : "Martingale (double after a loss)", color: "var(--series-2)" },
 ];
 
 const PERIODS = [
@@ -190,7 +192,7 @@ export default function OptionsLab() {
               ))}
             </select>
           </Field>
-          <Field label="Base size" hint="Contracts after a win; the martingale doubles from here">
+          <Field label="Base size" hint={s.levels ? "Contracts per trade for the same-size account" : "Contracts after a win; the martingale doubles from here"}>
             <select className="input w-full" value={s.contracts} onChange={(e) => set("contracts", Number(e.target.value))}>
               {[1, 2, 5, 10, 20, 50].map((n) => (
                 <option key={n} value={n}>
@@ -199,16 +201,27 @@ export default function OptionsLab() {
               ))}
             </select>
           </Field>
-          <Field label="Martingale limit" hint="Give up and reset after this many doublings">
+          <Field
+            label="Martingale steps"
+            hint={s.levels ? "Contracts per level: a loss moves up, any win goes back to level 1" : "Double after each loss; give up and reset after the limit"}
+          >
             <select
               className="input w-full"
-              value={String(s.maxDoublings)}
-              onChange={(e) => set("maxDoublings", e.target.value === "null" ? null : Number(e.target.value))}
+              value={s.levels ? "levels" : `double-${s.maxDoublings}`}
+              onChange={(e) => {
+                const v = e.target.value;
+                setS((cur) =>
+                  v === "levels"
+                    ? { ...cur, levels: [...LEVELS] }
+                    : { ...cur, levels: null, maxDoublings: v === "double-null" ? null : Number(v.slice(7)) },
+                );
+              }}
             >
-              <option value="null">No limit (classic)</option>
+              <option value="levels">Levels {LEVELS.join(" · ")}</option>
+              <option value="double-null">Double, no limit</option>
               {[2, 3, 4, 5, 6].map((n) => (
-                <option key={n} value={n}>
-                  {n} doublings (max {2 ** n}×)
+                <option key={n} value={`double-${n}`}>
+                  Double, up to {n} times (max {2 ** n}×)
                 </option>
               ))}
             </select>
@@ -236,7 +249,7 @@ export default function OptionsLab() {
 
       <Card title={sim?.from ? `Account value since ${fmtDate(sim.from)}` : "Account value"}>
         {sim ? (
-          <FundChart history={history} series={SERIES} longRange caption="Account value by day, same size vs martingale" />
+          <FundChart history={history} series={seriesFor(s.levels)} longRange caption="Account value by day, same size vs martingale" />
         ) : (
           <div className="h-64 animate-pulse rounded-lg bg-surface-2" />
         )}

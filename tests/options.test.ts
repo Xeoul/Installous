@@ -26,7 +26,7 @@ function bars(closes: number[], vix = 20): IndexBar[] {
 }
 
 // Delta-placed strikes unless a test says otherwise.
-const rules = (r: Partial<CondorRules> = {}): CondorRules => ({ ...DEFAULT_RULES, evenMoney: false, feePerLeg: 0, slippage: 0, ...r });
+const rules = (r: Partial<CondorRules> = {}): CondorRules => ({ ...DEFAULT_RULES, evenMoney: false, levels: null, feePerLeg: 0, slippage: 0, ...r });
 
 describe("pricing", () => {
   it("normal CDF and its inverse agree", () => {
@@ -75,6 +75,20 @@ describe("sizing", () => {
     expect(sizeFor(r, 2).contracts).toBe(4);
     expect(sizeFor(r, 3)).toEqual({ contracts: 1, streak: 0 });
     expect(sizeFor(rules({ sizing: "fixed", contracts: 2 }), 5).contracts).toBe(2);
+  });
+
+  it("walks the level ladder and starts over after the last level", () => {
+    const r = rules({ sizing: "martingale", levels: [1, 2, 5, 10, 25] });
+    expect([0, 1, 2, 3, 4].map((k) => sizeFor(r, k).contracts)).toEqual([1, 2, 5, 10, 25]);
+    expect(sizeFor(r, 5)).toEqual({ contracts: 1, streak: 0 });
+  });
+
+  it("levels: one win at the next level more than recovers the losses before it (at even money)", () => {
+    const levels = [1, 2, 5, 10, 25];
+    for (let k = 1; k < levels.length; k++) {
+      const lost = levels.slice(0, k).reduce((a, b) => a + b, 0);
+      expect(levels[k]).toBeGreaterThan(lost);
+    }
   });
 });
 
@@ -125,8 +139,10 @@ describe("simulateCondors", () => {
 describe("doublingLadder", () => {
   it("shows when the next bet outgrows the account", () => {
     const condor = { putLong: 4940, putShort: 4950, callShort: 5050, callLong: 5060, credit: 0.5 };
-    const rows = doublingLadder(condor, { contracts: 1, startCash: 10_000, feePerLeg: 0 }, 90, 1000);
+    const rows = doublingLadder(condor, { contracts: 1, startCash: 10_000, feePerLeg: 0, levels: null }, 90, 1000);
     expect(rows[0]).toMatchObject({ losses: 0, contracts: 1, atRisk: 950, lostSoFar: 0, affordable: true });
     expect(rows[3]).toMatchObject({ contracts: 8, atRisk: 7600, lostSoFar: 950 * 7, affordable: false });
+    const lv = doublingLadder(condor, { contracts: 1, startCash: 10_000, feePerLeg: 0, levels: [1, 2, 5, 10, 25] }, 90, 1000);
+    expect(lv.map((r) => r.contracts)).toEqual([1, 2, 5, 10, 25]);
   });
 });

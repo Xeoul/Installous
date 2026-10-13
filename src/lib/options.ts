@@ -39,6 +39,12 @@ export interface CondorRules {
   sizing: Sizing;
   /** Martingale only: after this many doublings in a row, give up and reset to the base size. null = never. */
   maxDoublings: number | null;
+  /**
+   * Martingale steps as contract counts per level, e.g. [1, 2, 5, 10, 25]: a
+   * loss moves up a level, any win goes back to the first, and a loss on the
+   * last level starts over. null doubles the base size after each loss instead.
+   */
+  levels: number[] | null;
   /** Fees per contract per leg, in dollars (commission-free brokers still pass on small regulatory fees). */
   feePerLeg: number;
   /** Price given up per two-leg spread each time you trade it, in dollars per share. */
@@ -56,6 +62,7 @@ export const DEFAULT_RULES: CondorRules = {
   startCash: 25_000,
   sizing: "martingale",
   maxDoublings: null,
+  levels: [1, 2, 5, 10, 25],
   feePerLeg: 0.04,
   slippage: 0.01,
 };
@@ -223,8 +230,16 @@ function expiryIndex(bars: IndexBar[], i: number, dte: number): number | null {
 }
 
 /** How many contracts to trade next. */
-export function sizeFor(rules: Pick<CondorRules, "sizing" | "contracts" | "maxDoublings">, streak: number): { contracts: number; streak: number } {
+export function sizeFor(
+  rules: Pick<CondorRules, "sizing" | "contracts" | "maxDoublings"> & { levels?: number[] | null },
+  streak: number,
+): { contracts: number; streak: number } {
   if (rules.sizing === "fixed") return { contracts: rules.contracts, streak };
+  if (rules.levels?.length) {
+    // Past the last level: start over at the first.
+    const s = streak >= rules.levels.length ? 0 : streak;
+    return { contracts: rules.levels[s], streak: s };
+  }
   if (rules.maxDoublings !== null && streak > rules.maxDoublings) return { contracts: rules.contracts, streak: 0 };
   return { contracts: rules.contracts * 2 ** streak, streak };
 }
@@ -345,12 +360,18 @@ function statsFor(rules: CondorRules, curve: CondorResult["curve"], trades: Cond
  * The martingale ladder: what each loss in a row asks you to bet next, and
  * how much you've lost by then if every trade loses its maximum.
  */
-export function doublingLadder(condor: Condor, rules: Pick<CondorRules, "contracts" | "startCash" | "feePerLeg">, winRate: number | null, trades: number) {
-  const maxLoss = (condor.putShort - condor.putLong - condor.credit) * MULTIPLIER + 4 * rules.feePerLeg;
+export function doublingLadder(
+  condor: Condor,
+  rules: Pick<CondorRules, "contracts" | "startCash" | "feePerLeg"> & { levels?: number[] | null },
+  winRate: number | null,
+  trades: number,
+) {
+  const maxLoss = maxLossPerShare(condor) * MULTIPLIER + 4 * rules.feePerLeg;
+  const steps = rules.levels?.length ? rules.levels.length - 1 : 12;
   const rows: { losses: number; contracts: number; atRisk: number; lostSoFar: number; affordable: boolean; chance: number | null; expected: number | null }[] = [];
   let lost = 0;
-  for (let k = 0; k <= 12; k++) {
-    const contracts = rules.contracts * 2 ** k;
+  for (let k = 0; k <= steps; k++) {
+    const contracts = rules.levels?.length ? rules.levels[k] : rules.contracts * 2 ** k;
     const atRisk = contracts * maxLoss;
     const q = winRate === null ? null : 1 - winRate / 100;
     rows.push({
