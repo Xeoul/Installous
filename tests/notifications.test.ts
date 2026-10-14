@@ -29,6 +29,7 @@ describe("condor notifications", () => {
     expect(n.title).toBe("Iron condor opened · level 2 of 5, 2×");
     expect(n.message).toContain("773/777p · 780/784c for $384.00 credit");
     expect(n.message).toContain("lose up to $416.00");
+    expect(n.short).toBe("Condor opened: level 2, 2× 777/780, $384 credit, risk $416");
     // A later step with the same condor says nothing new.
     expect(condorNotifications(state, structuredClone(state))).toEqual([]);
   });
@@ -40,6 +41,7 @@ describe("condor notifications", () => {
     const [n] = condorNotifications(prev, state);
     expect(n.title).toBe("Iron condor won +$191.84 (+0.77%)");
     expect(n.message).toContain("Account $25,191.84 · +$191.84 (+0.77%) total.");
+    expect(n.short).toBe("Condor won +$192 (+0.8%), account $25,192");
 
     const lost = { ...condor({ date: "2026-10-14", expiry: "2026-10-15" }), close: 760, pnl: -208.16, equityAfter: 24983.68 };
     const [l] = condorNotifications({ ...state }, { ...state, equity: 24983.68, trades: [lost, settled] });
@@ -50,6 +52,7 @@ describe("condor notifications", () => {
   it("says once when it skips a day or goes bust", () => {
     const skip = { ...base(), note: "Skipped: FOMC on Wed, Oct 28, while the condor would be open." };
     expect(condorNotifications(base(), skip).map((n) => n.title)).toEqual(["No iron condor today"]);
+    expect(condorNotifications(base(), skip)[0].short).toBe("No condor today: FOMC on Wed, Oct 28");
     expect(condorNotifications(skip, { ...skip })).toEqual([]);
     expect(condorNotifications(base(), { ...base(), bust: "2026-10-13" })[0].title).toBe("Condor bot is bust");
   });
@@ -81,5 +84,6 @@ describe("AI Fund notification", () => {
       "Value $102,630.55 · +$2,630.55 (+2.63%) since Oct 29.\nS&P 500 −0.01% today, +1.82% total.\nSold MU · Bought NVDA.".replace("Oct 29", "Sep 29"),
     );
     expect(n.path).toBe("/fund/");
+    expect(n.short).toBe("AI Fund +$826 (+0.81%) today, +2.63% total vs S&P +1.82%");
   });
 });

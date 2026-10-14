@@ -38,6 +38,6 @@ async function record(n: Notification) {
   }
   const now = new Date();
   const at = now.toLocaleString("sv-SE", { timeZone: "America/New_York" }).slice(0, 16);
-  const entry = { date: at.slice(0, 10), at, title: n.title, message: n.message, link: SITE + n.path };
+  const entry = { date: at.slice(0, 10), at, short: n.short, title: n.title, message: n.message, link: SITE + n.path };
   await writeFile(file, JSON.stringify([entry, ...log].slice(0, KEEP), null, 2) + "\n");
 }

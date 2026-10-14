@@ -6,6 +6,8 @@ import { maxLossPerShare } from "./options";
 
 export interface Notification {
   title: string;
+  /** One short line that fits a phone notification on its own. */
+  short: string;
   message: string;
   /** ntfy tags: emoji shortcodes shown beside the title. */
   tags: string[];
@@ -16,6 +18,10 @@ export interface Notification {
 const usd = (v: number) => `${v < 0 ? "−" : ""}$${Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const signedUsd = (v: number) => `${v >= 0 ? "+" : "−"}${usd(Math.abs(v))}`;
 const signedPct = (v: number) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(2)}%`;
+// Whole dollars and one-decimal percents for the one-line versions.
+const usd0 = (v: number) => `${v < 0 ? "−" : ""}$${Math.round(Math.abs(v)).toLocaleString("en-US")}`;
+const signedUsd0 = (v: number) => `${v >= 0 ? "+" : "−"}${usd0(Math.abs(v))}`;
+const signedPct1 = (v: number) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(1)}%`;
 const strikes = (t: BotTrade) => `${t.putLong}/${t.putShort}p · ${t.callShort}/${t.callLong}c`;
 
 /** What changed in the condor bot between two saved states, as notifications. */
@@ -32,6 +38,7 @@ export function condorNotifications(prev: BotState | null, state: BotState): Not
     const before = after - pnl;
     out.push({
       title: `Iron condor ${pnl >= 0 ? "won" : "lost"} ${signedUsd(pnl)} (${signedPct((pnl / before) * 100)})`,
+      short: `Condor ${pnl >= 0 ? "won" : "lost"} ${signedUsd0(pnl)} (${signedPct1((pnl / before) * 100)}), account ${usd0(after)}`,
       message:
         `SPY closed ${t.close} on ${fmtWeekday(t.expiry)} · ${t.contracts}× ${strikes(t)}.\n` +
         `Account ${usd(after)} · ${signedUsd(after - start)} (${signedPct((after / start - 1) * 100)}) total.`,
@@ -47,6 +54,7 @@ export function condorNotifications(prev: BotState | null, state: BotState): Not
     const maxLoss = maxLossPerShare(open) * 100 * open.contracts;
     out.push({
       title: `Iron condor opened · level ${open.level + 1} of ${levels.length}, ${open.contracts}×`,
+      short: `Condor opened: level ${open.level + 1}, ${open.contracts}× ${open.putShort}/${open.callShort}, ${usd0(credit)} credit, risk ${usd0(maxLoss)}`,
       message:
         `SPY ${strikes(open)} for ${usd(credit)} credit (SPY ${open.spot.toFixed(2)}).\n` +
         `Expires ${fmtWeekday(open.expiry)} at the close · win up to ${usd(credit)}, lose up to ${usd(maxLoss)}.` +
@@ -58,9 +66,9 @@ export function condorNotifications(prev: BotState | null, state: BotState): Not
 
   // A skipped day or a bust, once.
   if (state.bust && !prev?.bust) {
-    out.push({ title: "Condor bot is bust", message: state.note ?? "The account can't cover another condor.", tags: ["rotating_light"], path: "/options/" });
+    out.push({ title: "Condor bot is bust", short: "Condor bot is bust: can't cover another condor", message: state.note ?? "The account can't cover another condor.", tags: ["rotating_light"], path: "/options/" });
   } else if (state.note?.startsWith("Skipped") && state.note !== prev?.note) {
-    out.push({ title: "No iron condor today", message: state.note, tags: ["pause_button"], path: "/options/" });
+    out.push({ title: "No iron condor today", short: `No condor today: ${state.note.replace(/^Skipped: /, "").replace(/, while the condor would be open\.$/, "").replace(/\.$/, "")}`, message: state.note, tags: ["pause_button"], path: "/options/" });
   }
   return out;
 }
@@ -92,6 +100,7 @@ export function fundNotification(d: FundDay): Notification {
   if (bought.length || sold.length) lines.push([sold.length ? `Sold ${sold.join(", ")}` : "", bought.length ? `Bought ${bought.join(", ")}` : ""].filter(Boolean).join(" · ") + ".");
   return {
     title: `AI Fund ${signedUsd(day)} (${signedPct((day / d.prevEquity) * 100)}) today`,
+    short: `AI Fund ${signedUsd0(day)} (${signedPct((day / d.prevEquity) * 100)}) today, ${signedPct((total / d.startCash) * 100)} total vs S&P ${signedPct((d.spy / d.spyStart - 1) * 100)}`,
     message: lines.join("\n"),
     tags: [day >= 0 ? "moneybag" : "small_red_triangle_down"],
     path: "/fund/",
