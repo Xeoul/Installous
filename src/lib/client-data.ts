@@ -8,7 +8,6 @@ import type { BotState } from "./condor-bot";
 import { DEFAULT_PROFILE, DEFAULT_WATCHLIST } from "./defaults";
 import type { BacktestView } from "./backtest";
 import type { FundView } from "./fund";
-import { unpackBars, type IndexBar, type PackedBars } from "./options";
 import type { Fundamentals, NewsItem, Quote, SearchResult, StockEvents } from "./market";
 import { computePortfolio, mergeHolding, type Pick, type PortfolioSnapshot } from "./portfolio";
 import type { StockScore } from "./scoring";
@@ -163,11 +162,6 @@ export async function refreshCondorBot(): Promise<BotState> {
   return bot;
 }
 
-/** Daily SPY and VIX history for the Options Lab. */
-export async function getIndexBars(): Promise<IndexBar[]> {
-  const packed = DEMO ? await snapshot<PackedBars>("options.json") : await cachedJson<PackedBars>("/api/options", 10 * MARKET_TTL);
-  return unpackBars(packed);
-}
 
 export function getStock(ticker: string): Promise<StockData> {
   const t = normalize(ticker);
