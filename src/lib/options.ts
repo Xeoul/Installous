@@ -15,39 +15,6 @@ export interface IndexBar {
   vix: number;
 }
 
-/**
- * IndexBar[] in a compact, columnar form for the wire: about a third the size
- * as JSON (dates become day gaps from the first bar).
- */
-export interface PackedBars {
-  start: string;
-  gaps: number[];
-  open: number[];
-  close: number[];
-  vix: number[];
-}
-
-const DAY_MS = 86_400_000;
-
-export function packBars(bars: IndexBar[]): PackedBars {
-  const ms = bars.map((b) => Date.parse(`${b.date}T00:00:00Z`));
-  return {
-    start: bars[0]?.date ?? "",
-    gaps: ms.map((t, i) => (i === 0 ? 0 : Math.round((t - ms[i - 1]) / DAY_MS))),
-    open: bars.map((b) => b.open),
-    close: bars.map((b) => b.close),
-    vix: bars.map((b) => b.vix),
-  };
-}
-
-export function unpackBars(p: PackedBars): IndexBar[] {
-  let t = Date.parse(`${p.start}T00:00:00Z`);
-  return p.gaps.map((gap, i) => {
-    t += gap * DAY_MS;
-    return { date: new Date(t).toISOString().slice(0, 10), open: p.open[i], close: p.close[i], vix: p.vix[i] };
-  });
-}
-
 export type Sizing = "fixed" | "martingale";
 
 export interface CondorRules {
@@ -465,12 +432,4 @@ export function doublingLadder(condor: Condor, rules: Pick<CondorRules, "contrac
     if (lost > rules.startCash * 4) break;
   }
   return rows;
-}
-
-/** The condor these rules would open next, priced from the latest close and VIX. */
-export function nextCondor(bars: IndexBar[], rules: CondorRules): { date: string; spot: number; vix: number; condor: Condor } | null {
-  const last = bars.at(-1);
-  if (!last) return null;
-  const t = rules.dte === 0 ? OPEN_TO_CLOSE : Math.max(1, Math.round((rules.dte * 5) / 7)) / YEAR;
-  return { date: last.date, spot: last.close, vix: last.vix, condor: buildCondor(last.close, t, (last.vix / 100) * (rules.ivScale ?? 1), rules) };
 }

@@ -6,11 +6,9 @@ import {
   doublingLadder,
   normCdf,
   normInv,
-  packBars,
   planTrades,
   settlement,
   sizePlan,
-  unpackBars,
   simulateCondors,
   sizeFor,
   type CondorRules,
@@ -159,18 +157,6 @@ describe("simulateCondors", () => {
     const r = simulateCondors(bars(closes), rules({ dte: 30, stopLoss: 2, sizing: "fixed" }));
     expect(r.trades[0].exit).toBe("stop");
     expect(r.trades[0].pnl).toBeLessThan(0);
-  });
-});
-
-describe("packBars", () => {
-  it("round-trips bars through the compact wire format, across weekends and holidays", () => {
-    const b: IndexBar[] = [
-      { date: "2026-10-09", open: 1, close: 2, vix: 15 },
-      { date: "2026-10-12", open: 2, close: 3, vix: 16 },
-      { date: "2026-11-27", open: 3, close: 4, vix: 17.5 },
-      { date: "2027-03-15", open: 4, close: 5, vix: 18 }, // across a DST change
-    ];
-    expect(unpackBars(JSON.parse(JSON.stringify(packBars(b))))).toEqual(b);
   });
 });
 
