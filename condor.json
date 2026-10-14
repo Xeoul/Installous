@@ -9,10 +9,8 @@
     "width": 4,
     "levels": [
       1,
-      2,
-      5,
-      10,
-      25
+      3,
+      6
     ],
     "startCash": 25000,
     "feePerLeg": 0.04,
@@ -34,7 +32,7 @@
     }
   ],
   "note": null,
-  "updatedAt": "2026-10-13T22:30:10.875Z",
+  "updatedAt": "2026-10-14T07:04:55.108Z",
   "level": 0,
   "settling": null
 }
