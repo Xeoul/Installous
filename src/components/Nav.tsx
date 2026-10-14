@@ -2,18 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { MarketClock } from "./MarketClock";
+import { MORE } from "./TabBar";
 import { TickerSearch } from "./TickerSearch";
 
 const LINKS = [
   { href: "/", label: "Dashboard" },
   { href: "/fund", label: "AI Fund" },
   { href: "/options", label: "Options Lab" },
-  { href: "/compare", label: "Compare" },
-  { href: "/advisor", label: "AI Advisor" },
-  { href: "/portfolio", label: "Portfolio" },
-  { href: "/settings", label: "Profile" },
 ];
+
+const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
 export function Nav() {
   const pathname = usePathname();
@@ -31,7 +31,7 @@ export function Nav() {
         {/* Phones use the bottom tab bar instead. */}
         <nav className="hidden gap-1 sm:flex" aria-label="Sections">
           {LINKS.map((l) => {
-            const active = l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);
+            const active = isActive(pathname, l.href);
             return (
               <Link
                 key={l.href}
@@ -44,6 +44,7 @@ export function Nav() {
               </Link>
             );
           })}
+          <MoreMenu pathname={pathname} />
         </nav>
         <div className="ml-auto">
           <MarketClock />
@@ -53,5 +54,60 @@ export function Nav() {
         </div>
       </div>
     </header>
+  );
+}
+
+/** The less-used pages, behind a small "More" menu on wider screens. */
+function MoreMenu({ pathname }: { pathname: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const active = MORE.some((m) => isActive(pathname, m.href));
+
+  // Close on a click outside or Escape.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className={`flex items-center gap-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm ${
+          active ? "bg-surface-2 font-medium text-text" : "text-text-2 hover:text-text"
+        }`}
+      >
+        More
+        <svg viewBox="0 0 24 24" className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      {open && (
+        <ul role="menu" className="absolute left-0 top-full z-30 mt-1 w-48 overflow-hidden rounded-xl border border-border bg-surface py-1 shadow-lg">
+          {MORE.map((m) => (
+            <li key={m.href} role="none">
+              <Link
+                role="menuitem"
+                href={m.href}
+                onClick={() => setOpen(false)}
+                className={`block px-3 py-2 text-sm hover:bg-surface-2 ${isActive(pathname, m.href) ? "font-medium text-accent" : "text-text"}`}
+              >
+                {m.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
