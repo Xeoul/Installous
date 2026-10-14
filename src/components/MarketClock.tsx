@@ -22,8 +22,8 @@ export function MarketClock() {
     <span className="flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs text-text-2" title={`US market ${full.toLowerCase()} (New York time)`} aria-label={`US market ${full.toLowerCase()}`}>
       {open ? <span className="live-dot" aria-hidden /> : <span className="h-2 w-2 rounded-full bg-muted" aria-hidden />}
       {/* Narrower screens get the short form. */}
-      <span className="xl:hidden">{open ? `Open · ${untilLabel(next.getTime() - now.getTime())}` : `Opens ${opensLabel(next, now).replace("tomorrow ", "")}`}</span>
-      <span className="hidden xl:inline">{full}</span>
+      <span className="lg:hidden">{open ? `Open · ${untilLabel(next.getTime() - now.getTime())}` : `Opens ${opensLabel(next, now).replace("tomorrow ", "")}`}</span>
+      <span className="hidden lg:inline">{full}</span>
     </span>
   );
 }

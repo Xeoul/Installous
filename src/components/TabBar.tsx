@@ -20,7 +20,8 @@ const TABS = [
   { href: "/options", label: "Options", icon: icon(<path d="M3 17l5-6 4 4 4-7 5 9" />) },
 ];
 
-const MORE = [
+/** Pages kept out of the main navigation, in the More sheet (phones) and More menu (desktop). */
+export const MORE = [
   { href: "/compare", label: "Compare stocks" },
   { href: "/advisor", label: "AI Advisor" },
   { href: "/portfolio", label: "Portfolio" },

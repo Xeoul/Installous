@@ -6,10 +6,11 @@
 # clock) and steps it again: a few times in the last half hour, where it
 # opens the next condor, and once after the official close to settle.
 # The bot itself decides what to do at each step; extra steps are harmless.
-# A run that starts too early to reach the close (jobs are limited to six
-# hours) waits as long as it can, then starts a fresh run of this workflow
-# to take over (workflow_dispatch, which GitHub doesn't skip), so a single
-# run starting any time from the morning on covers the whole day.
+# Runs chain around the clock: jobs are limited to six hours, so each run
+# waits as long as it can and then starts a fresh run of this workflow to
+# take over (workflow_dispatch, which GitHub doesn't skip). One run started
+# once keeps the bot going every day, weekends and holidays included, with
+# no reliance on GitHub's schedule (which skipped every slot on 2026-10-13).
 #
 #   FUND_DIR     checkout of the fund-data branch holding condor.json
 #   TIMES        space-separated HH:MM New York times (default below)
@@ -51,28 +52,39 @@ step() {
   return $ok
 }
 
+# The next step time after `$1` (epoch seconds): today's remaining TIMES,
+# else the first TIMES on the next weekday (New York calendar).
+next_step() {
+  local from=$1 off day t at
+  for off in 0 1 2 3 4 5 6 7; do
+    day=$(TZ=America/New_York date -d "@$((from + off * 86400))" +%F)
+    [ "$(date -d "$day" +%u)" -le 5 ] || continue
+    for t in $TIMES; do
+      at=$(date -d "TZ=\"America/New_York\" $day $t" +%s)
+      [ "$at" -gt "$from" ] && { echo "$at"; return; }
+    done
+  done
+}
+
 step
 status=$?
 
-today=$(TZ=America/New_York date +%F)
-[ "$(TZ=America/New_York date +%u)" -le 5 ] || exit $status
-for t in $TIMES; do
-  at=$(date -d "TZ=\"America/New_York\" $today $t" +%s)
+while :; do
   now=$(date +%s)
-  [ "$at" -gt "$now" ] || continue
+  at=$(next_step "$now")
   if [ "$at" -gt "$deadline" ]; then
     if [ -n "${HANDOFF:-}" ]; then
-      echo "Too early to wait for $t; handing off to a fresh run in $((deadline - now))s"
+      # Keep the chain going: wait as long as this job may, then start the next run.
+      echo "Next step $(TZ=America/New_York date -d "@$at" '+%a %H:%M %Z') is past this run's limit; handing off in $((deadline - now))s"
       [ "$deadline" -gt "$now" ] && sleep $((deadline - now))
       eval "$HANDOFF" || { echo "::error::Couldn't start the successor run"; exit 1; }
     else
-      echo "Started too early to wait for $t; a later run takes over."
+      echo "Next step $(TZ=America/New_York date -d "@$at" '+%a %H:%M %Z') is past this run's limit; a later run takes over."
     fi
-    break
+    exit $status
   fi
-  echo "Waiting until $t New York time ($((at - now))s)"
+  echo "Waiting until $(TZ=America/New_York date -d "@$at" '+%a %H:%M %Z') ($((at - now))s)"
   sleep $((at - now))
   step
   status=$?
 done
-exit $status
