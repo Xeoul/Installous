@@ -12,7 +12,7 @@ import { upcomingNews } from "@/lib/news-days";
 import { settlement } from "@/lib/options";
 
 const strikes = (t: BotTrade) => `${t.putLong}/${t.putShort}p · ${t.callShort}/${t.callLong}c`;
-const DEFAULT_LEVELS = [1, 2, 5, 10, 25];
+const DEFAULT_LEVELS = [1, 3, 6];
 
 /** The live paper bot: SPY iron condors held to the next day's close, sized by the level ladder. */
 export function CondorBot() {
