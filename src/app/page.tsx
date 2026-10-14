@@ -61,7 +61,7 @@ export default function Dashboard() {
             <Skeleton rows={6} />
           ) : (
             <ul className="divide-y divide-border">
-              {picks.slice(0, 8).map((p, i) => (
+              {picks.slice(0, 5).map((p, i) => (
                 <li key={p.ticker}>
                   <Link href={stockHref(p.ticker)} className="flex items-center gap-3 py-2.5 hover:bg-surface-2/50">
                     <span className="num w-5 text-sm text-muted">{i + 1}</span>
