@@ -54,7 +54,7 @@ export function condorNotifications(prev: BotState | null, state: BotState): Not
     const maxLoss = maxLossPerShare(open) * 100 * open.contracts;
     out.push({
       title: `Iron condor opened · level ${open.level + 1} of ${levels.length}, ${open.contracts}×`,
-      short: `Condor opened · level ${open.level + 1} (${open.contracts} contract${open.contracts === 1 ? "" : "s"})`,
+      short: `Level ${open.level + 1} - ${open.contracts} contract${open.contracts === 1 ? "" : "s"}`,
       message:
         `${name} ${strikes(open)} for ${usd(credit)} credit (${name} ${open.spot.toFixed(2)}).\n` +
         `Expires ${fmtWeekday(open.expiry)} at the close · win up to ${usd(credit)}, lose up to ${usd(maxLoss)}.` +

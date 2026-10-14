@@ -29,7 +29,7 @@ describe("condor notifications", () => {
     expect(n.title).toBe("Iron condor opened · level 2 of 3, 2×");
     expect(n.message).toContain("773/777p · 780/784c for $384.00 credit");
     expect(n.message).toContain("lose up to $416.00");
-    expect(n.short).toBe("Condor opened · level 2 (2 contracts)");
+    expect(n.short).toBe("Level 2 - 2 contracts");
     // A later step with the same condor says nothing new.
     expect(condorNotifications(state, structuredClone(state))).toEqual([]);
   });
