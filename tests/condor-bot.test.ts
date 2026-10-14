@@ -197,9 +197,9 @@ describe("stepBot", () => {
       const expiring = s.open;
       const spot = !expiring ? 500 : i % 2 ? (expiring.putShort + expiring.callShort) / 2 : expiring.putLong - 5;
       // Every step of the real schedule, twice over (duplicate runs).
-      for (const time of ["10:30", "15:27", "15:27", "15:35", "15:43", "15:51", "15:58", "16:20", "16:20"]) {
-        const settled = time >= "16:20" ? { ...closes, [days[i]]: spot } : closes;
-        s = step(s, days[i], time, time >= "16:20" ? null : chain(days[i + 1], spot), settled);
+      for (const time of ["10:30", "15:27", "15:27", "15:35", "15:43", "15:51", "15:58", "16:06", "16:06", "16:20", "16:35", "16:50"]) {
+        const settled = time >= "16:06" ? { ...closes, [days[i]]: spot } : closes;
+        s = step(s, days[i], time, time >= "16:06" ? null : chain(days[i + 1], spot), settled);
       }
       closes[days[i]] = spot;
     }
@@ -210,6 +210,24 @@ describe("stepBot", () => {
     for (const t of all) expect(t.contracts).toBe(ladder[t.level]);
     // The first opens at level 1; then each loss climbs the ladder and each win drops back to level 1.
     expect([...s.trades].reverse().map((t) => t.contracts)).toEqual([1, 1, 3, 1, 3, 1, 3]);
+  });
+
+  it("settles at the 4:06pm step, once the close is in, and not before 4:05", () => {
+    let s = step(start(), "2026-10-13", "15:27", chain("2026-10-14"));
+    s = step(s, "2026-10-14", "15:27", chain("2026-10-15"));
+    expect(s.settling).toMatchObject({ expiry: "2026-10-14" });
+    // Yahoo's "close" at 4:04 can still be a pre-close price: wait.
+    s = step(s, "2026-10-14", "16:04", null, { "2026-10-14": 500 });
+    expect(s.settling).not.toBeNull();
+    expect(s.trades).toHaveLength(0);
+    s = step(s, "2026-10-14", "16:06", null, { "2026-10-14": 500 });
+    expect(s.settling).toBeNull();
+    expect(s.trades).toMatchObject([{ expiry: "2026-10-14", close: 500 }]);
+    expect(s.trades[0].pnl).toBeGreaterThan(0);
+    // Later retry steps change nothing.
+    const again = step(s, "2026-10-14", "16:20", null, { "2026-10-14": 500 });
+    expect(again.trades).toEqual(s.trades);
+    expect(again.equity).toBe(s.equity);
   });
 
   it("climbs the ladder 1, 3, 6 and starts over after a loss on level 3", () => {
