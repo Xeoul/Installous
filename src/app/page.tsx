@@ -21,7 +21,8 @@ export default function Dashboard() {
   const [watchlist, setWatchlist] = useState<Quote[] | null>(null);
   const [picks, setPicks] = useState<Pick[] | null>(null);
   const [sparks, setSparks] = useState<Record<string, ChartData>>({});
-  const live = useLivePrices(watchlist?.map((q) => q.ticker) ?? []);
+  // Streamed prices for the watchlist and the top picks shown here.
+  const live = useLivePrices([...(watchlist?.map((q) => q.ticker) ?? []), ...(picks?.slice(0, 5).map((p) => p.ticker) ?? [])]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -51,7 +52,7 @@ export default function Dashboard() {
 
       <ShowcaseCard portfolio={portfolio} />
 
-      <div className="grid gap-6 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
         <Card
           title="Top picks"
           action={<Link href="/picks" className="text-sm text-accent">See all →</Link>}
@@ -69,9 +70,18 @@ export default function Dashboard() {
                       <div className="font-medium">{p.ticker}</div>
                       <div className="truncate text-xs text-text-2">{p.name}</div>
                     </div>
-                    <div className="hidden text-right sm:block">
-                      <div className="num text-sm">{money(p.price)}</div>
-                      <Change value={p.changePercent} className="text-xs" />
+                    <div className="text-right">
+                      {(() => {
+                        const tick = live[p.ticker];
+                        const on = tick?.marketHours === MarketHours.Regular;
+                        const price = on ? tick.price : p.price;
+                        return (
+                          <>
+                            <div className="num text-sm">{price !== null ? <RollingNumber value={money(price)} /> : money(price)}</div>
+                            <Change value={on ? (tick.changePercent ?? p.changePercent) : p.changePercent} className="text-xs" />
+                          </>
+                        );
+                      })()}
                     </div>
                     <ScoreBadge score={p.overall} rating={p.rating} />
                   </Link>

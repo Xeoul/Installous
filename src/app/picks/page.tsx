@@ -3,9 +3,12 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Change } from "@/components/Change";
+import { RollingNumber } from "@/components/RollingNumber";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { getPicks, stockHref } from "@/lib/client-data";
 import { compact, money } from "@/lib/format";
+import { MarketHours } from "@/lib/live/pricing";
+import { useLivePrices } from "@/lib/live/useLivePrice";
 import type { Pick } from "@/lib/portfolio";
 import type { FactorKey } from "@/lib/scoring";
 
@@ -41,6 +44,8 @@ export default function PicksPage() {
     () => ["All", ...[...new Set((picks ?? []).map((p) => p.sector).filter((s): s is string => !!s))].sort()],
     [picks],
   );
+  // While the market's open, streamed prices tick every row.
+  const live = useLivePrices(picks?.map((p) => p.ticker) ?? []);
   const rows = useMemo(
     () =>
       (picks ?? [])
@@ -122,8 +127,7 @@ export default function PicksPage() {
                   </Link>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <div className="num">{money(p.price)}</div>
-                  <Change value={p.changePercent} className="text-xs" />
+                  <LivePrice pick={p} tick={live[p.ticker]} />
                 </td>
                 <td className="num hidden px-4 py-3 text-right text-text-2 md:table-cell">{compact(p.marketCap)}</td>
                 <td className="px-3 py-3 text-right">
@@ -140,5 +144,17 @@ export default function PicksPage() {
         </table>
       </div>
     </div>
+  );
+}
+
+function LivePrice({ pick, tick }: { pick: Pick; tick?: ReturnType<typeof useLivePrices>[string] }) {
+  const on = tick?.marketHours === MarketHours.Regular;
+  const price = on ? tick.price : pick.price;
+  const change = on ? (tick.changePercent ?? pick.changePercent) : pick.changePercent;
+  return (
+    <>
+      <div className="num">{price !== null ? <RollingNumber value={money(price)} /> : money(price)}</div>
+      <Change value={change} className="text-xs" />
+    </>
   );
 }
