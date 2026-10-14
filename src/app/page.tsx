@@ -70,7 +70,7 @@ export default function Dashboard() {
                       <div className="font-medium">{p.ticker}</div>
                       <div className="truncate text-xs text-text-2">{p.name}</div>
                     </div>
-                    <div className="text-right">
+                    <div className="w-20 shrink-0 text-right sm:w-24">
                       {(() => {
                         const tick = live[p.ticker];
                         const on = tick?.marketHours === MarketHours.Regular;
@@ -83,7 +83,9 @@ export default function Dashboard() {
                         );
                       })()}
                     </div>
-                    <ScoreBadge score={p.overall} rating={p.rating} />
+                    <div className="flex w-28 shrink-0 justify-end sm:w-32">
+                      <ScoreBadge score={p.overall} rating={p.rating} />
+                    </div>
                   </Link>
                 </li>
               ))}
@@ -113,7 +115,7 @@ export default function Dashboard() {
                         <div className="truncate text-xs text-text-2">{q.name}</div>
                       </div>
                       <Sparkline data={sparks[q.ticker]} />
-                      <div className="w-20 text-right">
+                      <div className="w-24 shrink-0 text-right">
                         <div className="num text-sm">{q.price !== null ? <RollingNumber value={money(q.price)} /> : money(q.price)}</div>
                         <Change value={q.changePercent} className="text-xs" />
                       </div>
