@@ -2,11 +2,14 @@
   "version": 3,
   "startDate": "2026-10-12",
   "rules": {
-    "ticker": "SPY",
+    "ticker": "^SPX",
+    "quoteTicker": "^GSPC",
+    "name": "SPX",
+    "strikeStep": 5,
     "expiryDays": 1,
     "evenMoney": true,
     "shortDelta": 0.1,
-    "width": 4,
+    "width": 5,
     "levels": [
       1,
       3,
@@ -26,13 +29,13 @@
   "open": {
     "date": "2026-10-14",
     "expiry": "2026-10-15",
-    "openedAt": "2026-10-14T19:27:00.635Z",
-    "spot": 768.95,
-    "putLong": 762,
-    "putShort": 766,
-    "callShort": 771,
-    "callLong": 775,
-    "credit": 1.84,
+    "openedAt": "2026-10-14T19:36:56.382Z",
+    "spot": 7713.44,
+    "putLong": 7675,
+    "putShort": 7680,
+    "callShort": 7745,
+    "callLong": 7750,
+    "credit": 2.78,
     "contracts": 1,
     "level": 0,
     "streak": 0,
@@ -46,7 +49,7 @@
     }
   ],
   "note": null,
-  "updatedAt": "2026-10-14T19:27:00.635Z",
+  "updatedAt": "2026-10-14T19:36:56.382Z",
   "level": 0,
   "settling": null
 }
