@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { ViewTransition } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
-import { DemoBanner } from "@/components/DemoBanner";
 import { Nav } from "@/components/Nav";
 import { TabBar } from "@/components/TabBar";
 import "./globals.css";
@@ -40,7 +39,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         {/* The header comes first, padded for the status bar wherever a browser draws the page under it. */}
         <Nav />
-        <DemoBanner />
         <main className="mx-auto w-full max-w-6xl flex-1 px-[max(1rem,env(safe-area-inset-left))] py-5 sm:py-6">
           {/* Navigations are transitions, so the page crossfades instead of swapping (see globals.css). */}
           <ViewTransition name="page">{children}</ViewTransition>
