@@ -23,7 +23,21 @@
   "equity": 25000,
   "streak": 0,
   "bust": null,
-  "open": null,
+  "open": {
+    "date": "2026-10-14",
+    "expiry": "2026-10-15",
+    "openedAt": "2026-10-14T19:27:00.635Z",
+    "spot": 768.95,
+    "putLong": 762,
+    "putShort": 766,
+    "callShort": 771,
+    "callLong": 775,
+    "credit": 1.84,
+    "contracts": 1,
+    "level": 0,
+    "streak": 0,
+    "capped": false
+  },
   "trades": [],
   "history": [
     {
@@ -32,7 +46,7 @@
     }
   ],
   "note": null,
-  "updatedAt": "2026-10-14T18:15:53.966Z",
+  "updatedAt": "2026-10-14T19:27:00.635Z",
   "level": 0,
   "settling": null
 }
