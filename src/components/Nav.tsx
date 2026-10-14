@@ -6,7 +6,6 @@ import { TickerSearch } from "./TickerSearch";
 
 const LINKS = [
   { href: "/", label: "Dashboard" },
-  { href: "/picks", label: "Top Picks" },
   { href: "/fund", label: "AI Fund" },
   { href: "/options", label: "Options Lab" },
   { href: "/compare", label: "Compare" },

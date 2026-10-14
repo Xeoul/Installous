@@ -16,7 +16,6 @@ const icon = (d: ReactNode) => (
 
 const TABS = [
   { href: "/", label: "Home", icon: icon(<path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h13V9.5" />) },
-  { href: "/picks", label: "Picks", icon: icon(<path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1 5.9-.9z" />) },
   { href: "/fund", label: "AI Fund", icon: icon(<><circle cx="12" cy="12" r="8.5" /><path d="M12 3.5V12l6 6" /></>) },
   { href: "/options", label: "Options", icon: icon(<path d="M3 17l5-6 4 4 4-7 5 9" />) },
 ];
@@ -26,6 +25,7 @@ const MORE = [
   { href: "/advisor", label: "AI Advisor" },
   { href: "/portfolio", label: "Portfolio" },
   { href: "/settings", label: "Investor profile" },
+  { href: "/picks", label: "Top picks" },
 ];
 
 const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
@@ -42,7 +42,7 @@ export function TabBar() {
         aria-label="Main"
         className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-bg/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl [view-transition-name:tab-bar] sm:hidden"
       >
-        <div className="mx-auto grid max-w-md grid-cols-5">
+        <div className="mx-auto grid max-w-md grid-cols-4">
           {TABS.map((t) => (
             <Link
               key={t.href}
