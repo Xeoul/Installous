@@ -60,3 +60,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           HANDOFF: gh workflow run condor.yml -R ${{ github.repository }} --ref main
+          PUBLISH: gh workflow run demo.yml -R ${{ github.repository }} --ref main
