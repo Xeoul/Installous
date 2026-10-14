@@ -153,6 +153,16 @@ export function getCondorBot(): Promise<BotState> {
   return cachedJson("/api/condor", MARKET_TTL);
 }
 
+/** The bot's latest published state, skipping every cache (to catch an order as it fills). */
+export async function refreshCondorBot(): Promise<BotState> {
+  const url = DEMO ? `${BASE_PATH}/demo-data/condor.json` : "/api/condor";
+  const bot = await json<BotState>(`${url}?t=${Date.now()}`, { cache: "no-store" });
+  const fresh = Promise.resolve(bot);
+  if (DEMO) snapshotCache.set("condor.json", fresh);
+  else apiCache.set("/api/condor", { at: Date.now(), value: fresh });
+  return bot;
+}
+
 /** Daily SPY and VIX history for the Options Lab. */
 export async function getIndexBars(): Promise<IndexBar[]> {
   const packed = DEMO ? await snapshot<PackedBars>("options.json") : await cachedJson<PackedBars>("/api/options", 10 * MARKET_TTL);
