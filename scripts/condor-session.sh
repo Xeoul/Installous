@@ -16,6 +16,7 @@
 #   TIMES        space-separated HH:MM New York times (default below)
 #   BUDGET_MIN   stop waiting after this many minutes (the job's limit is 360)
 #   HANDOFF      when set, the command that starts the successor run
+#   PUBLISH      when set, the command that republishes the site after new notifications
 set -uo pipefail
 
 TIMES=${TIMES:-"15:27 15:35 15:43 15:51 16:20"}
@@ -29,9 +30,17 @@ save() {
     git add condor.json
     for f in notify.json notifications.json; do [ -f "$f" ] && git add "$f"; done
     git diff --cached --quiet && exit 0
+    news=$(git diff --cached --name-only -- notifications.json)
     git commit -q -m "Update condor bot $(date -u +%Y-%m-%dT%H:%MZ)" || exit 1
     # The deploy workflow also pushes here (other files), so rebase onto it first.
-    for _ in 1 2 3 4 5; do git pull -q --rebase && git push -q && exit 0; sleep 5; done
+    for _ in 1 2 3 4 5; do
+      if git pull -q --rebase && git push -q; then
+        # New notifications: republish the site now, where the phone-notification routine reads them.
+        [ -n "$news" ] && [ -n "${PUBLISH:-}" ] && { eval "$PUBLISH" || echo "::warning::Couldn't start the site deploy"; }
+        exit 0
+      fi
+      sleep 5
+    done
     exit 1
   )
 }

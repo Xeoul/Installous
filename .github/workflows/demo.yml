@@ -51,7 +51,10 @@ jobs:
         env:
           FUND_DIR: fund-state
       - name: Publish the condor bot's state
-        run: cp fund-state/condor.json public/demo-data/condor.json 2>/dev/null || echo "No condor bot state yet"
+        run: |
+          cp fund-state/condor.json public/demo-data/condor.json 2>/dev/null || echo "No condor bot state yet"
+          # The phone-notification routine reads the bots' notifications from the site.
+          cp fund-state/notifications.json public/demo-data/notifications.json 2>/dev/null || echo "[]" > public/demo-data/notifications.json
       # Backs up the condor bot's own schedule, which GitHub may skip: from
       # late morning to the close, start a bot run that stays up through the
       # close if one isn't already running.
