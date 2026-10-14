@@ -1,6 +1,6 @@
 // Phone notifications for the condor bot: what to say, as
 // pure functions of their saved states (scripts/notify.ts sends them).
-import type { BotState, BotTrade } from "./condor-bot";
+import { botName, type BotState, type BotTrade } from "./condor-bot";
 import { fmtWeekday } from "./dates";
 import { maxLossPerShare } from "./options";
 
@@ -29,6 +29,7 @@ export function condorNotifications(prev: BotState | null, state: BotState): Not
   const known = new Set((prev?.trades ?? []).map((t) => t.expiry));
   const levels = state.rules.levels;
   const start = state.rules.startCash;
+  const name = botName(state.rules);
 
   // Settled condors, oldest first.
   for (const t of state.trades.filter((t) => !known.has(t.expiry)).reverse()) {
@@ -39,7 +40,7 @@ export function condorNotifications(prev: BotState | null, state: BotState): Not
       title: `Iron condor ${pnl >= 0 ? "won" : "lost"} ${signedUsd(pnl)} (${signedPct((pnl / before) * 100)})`,
       short: `Condor ${pnl >= 0 ? "won" : "lost"} ${signedUsd0(pnl)}`,
       message:
-        `SPY closed ${t.close} on ${fmtWeekday(t.expiry)} · ${t.contracts}× ${strikes(t)}.\n` +
+        `${name} closed ${t.close} on ${fmtWeekday(t.expiry)} · ${t.contracts}× ${strikes(t)}.\n` +
         `Account ${usd(after)} · ${signedUsd(after - start)} (${signedPct((after / start - 1) * 100)}) total.`,
       tags: [pnl >= 0 ? "white_check_mark" : "x"],
       path: "/options/",
@@ -55,7 +56,7 @@ export function condorNotifications(prev: BotState | null, state: BotState): Not
       title: `Iron condor opened · level ${open.level + 1} of ${levels.length}, ${open.contracts}×`,
       short: `Condor opened · level ${open.level + 1} (${open.contracts} contract${open.contracts === 1 ? "" : "s"})`,
       message:
-        `SPY ${strikes(open)} for ${usd(credit)} credit (SPY ${open.spot.toFixed(2)}).\n` +
+        `${name} ${strikes(open)} for ${usd(credit)} credit (${name} ${open.spot.toFixed(2)}).\n` +
         `Expires ${fmtWeekday(open.expiry)} at the close · win up to ${usd(credit)}, lose up to ${usd(maxLoss)}.` +
         (open.capped ? `\nCapped at ${open.contracts}× by the cash on hand (level ${open.level + 1} wants ${levels[open.level]}×).` : ""),
       tags: ["chart_with_upwards_trend"],

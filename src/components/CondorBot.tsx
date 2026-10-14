@@ -5,7 +5,7 @@ import { OrderTicket, PositionCard } from "@/components/CondorLive";
 import { Change } from "@/components/Change";
 import { FundChart } from "@/components/FundChart";
 import { getCondorBot } from "@/lib/client-data";
-import type { BotState, BotTrade } from "@/lib/condor-bot";
+import { botName, botQuoteTicker, type BotState, type BotTrade } from "@/lib/condor-bot";
 import { fmtWeekday as fmtDate, nyDate } from "@/lib/dates";
 import { signedUsd0 as signed, usd0 } from "@/lib/format";
 import { MarketHours } from "@/lib/live/pricing";
@@ -36,7 +36,8 @@ export function CondorBot() {
   const wins = bot?.trades.filter((t) => (t.pnl ?? 0) >= 0).length ?? 0;
   // Open condors are marked live from SPY's streamed price, like positions in a brokerage app.
   const positions = [bot?.settling, bot?.open].filter((t): t is BotTrade => !!t);
-  const ticker = positions.length ? (r?.ticker ?? "SPY") : null;
+  const ticker = positions.length && r ? botQuoteTicker(r) : null;
+  const name = r ? botName(r) : "SPX";
   const live = useLivePrice(ticker);
   const tail = useLiveTail(ticker, 15_000);
   const spot = live?.price ?? positions.at(-1)?.spot;
@@ -47,7 +48,7 @@ export function CondorBot() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-text-2">
           {positions.length > 0 && !bot?.bust && <span className="live-dot" aria-hidden />}
-          Live SPY martingale bot
+          Live {name} martingale bot
         </h2>
         {bot && (
           <span className="text-xs text-muted">
@@ -62,10 +63,10 @@ export function CondorBot() {
         <div className="h-40 animate-pulse rounded-lg bg-surface-2" />
       ) : (
         <>
-          <OrderTicket bot={bot} onUpdate={setBot} />
+          <OrderTicket bot={bot} onUpdate={setBot} name={name} />
           {spot !== undefined &&
             positions.map((t) => (
-              <PositionCard key={t.date} trade={t} rules={r} spot={spot} live={live?.marketHours === MarketHours.Regular} tail={tail} />
+              <PositionCard key={t.date} trade={t} rules={r} name={name} spot={spot} live={live?.marketHours === MarketHours.Regular} tail={tail} />
             ))}
           <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
             <Tile label="Account" value={usd0(bot.equity)} sub={<Change value={(bot.equity / r.startCash - 1) * 100} />} />
@@ -85,7 +86,7 @@ export function CondorBot() {
                   </span>
                 ) : bot.trades[0] ? (
                   <span className="text-text-2">
-                    {fmtDate(bot.trades[0].expiry ?? bot.trades[0].date)} · SPY closed {bot.trades[0].close?.toFixed(2)}
+                    {fmtDate(bot.trades[0].expiry ?? bot.trades[0].date)} · {name} closed {bot.trades[0].close?.toFixed(2)}
                   </span>
                 ) : (
                   <span className="text-text-2">Opens in the last half hour of a market day</span>
@@ -117,7 +118,7 @@ export function CondorBot() {
 
           {bot.settling?.rolled && (
             <p className="mt-2 text-xs text-text-2">
-              The condor expiring {fmtDate(bot.settling.expiry)} looked like {signed(bot.settling.rolled.pnl)} with SPY at{" "}
+              The condor expiring {fmtDate(bot.settling.expiry)} looked like {signed(bot.settling.rolled.pnl)} with {name} at{" "}
               {bot.settling.rolled.spot.toFixed(2)} near the close, so the next one opened at level {(bot.open?.level ?? level) + 1}. It
               settles at the official close.
             </p>
@@ -149,7 +150,7 @@ export function CondorBot() {
                 <li key={`${t.date}-${t.expiry}`} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-2">
                   <span className="flex-1 text-xs text-muted sm:w-24 sm:flex-none">{fmtDate(t.expiry ?? t.date)}</span>
                   <span className="num order-last w-full text-xs text-text-2 sm:order-none sm:w-auto sm:min-w-0 sm:flex-1">
-                    {strikes(t)} · SPY {t.spot.toFixed(2)} → {t.close?.toFixed(2)}
+                    {strikes(t)} · {name} {t.spot.toFixed(2)} → {t.close?.toFixed(2)}
                   </span>
                   <span className={`num w-24 text-right text-xs ${(t.level ?? 0) > 0 ? "font-semibold text-warn" : "text-text-2"}`}>
                     L{(t.level ?? 0) + 1} · {t.contracts}×
@@ -165,7 +166,7 @@ export function CondorBot() {
             <p className="mt-2">
               In the last half hour of each market day it checks whether the condor expiring today is a win or a loss, sets the next
               size from the ladder ({levels.join(", ")} contracts: a loss moves up a level, any win goes back to level 1, and a loss on
-              level {levels.length} starts over), then sells a SPY iron condor expiring the next trading day with ${r.width} wings
+              level {levels.length} starts over), then sells a {name} iron condor expiring the next trading day with ${r.width} wings
               {r.evenMoney ? `, short strikes placed so it collects about $${(r.width * 50).toFixed(0)}` : ""}. It skips a day if the
               condor pays under ${((r.minCredit ?? 0) * 100).toFixed(0)}, or if a Fed decision, CPI or jobs report lands while it would be
               open. Fills use the quoted mid less ${r.slippage.toFixed(2)} per spread (Yahoo Finance quotes, which can be delayed), and
