@@ -27,7 +27,7 @@
       "shares": 49.01192810646116,
       "costBasis": 204.03196499999999,
       "openedAt": "2026-09-29",
-      "lastPrice": 222.14
+      "lastPrice": 222.04
     },
     {
       "ticker": "MSFT",
@@ -51,7 +51,7 @@
       "shares": 44.31489280964165,
       "costBasis": 225.6577725,
       "openedAt": "2026-09-29",
-      "lastPrice": 236
+      "lastPrice": 235.95
     },
     {
       "ticker": "TXN",
@@ -67,7 +67,7 @@
       "shares": 61.95569501782505,
       "costBasis": 161.40566249999998,
       "openedAt": "2026-09-29",
-      "lastPrice": 177.06
+      "lastPrice": 177.01
     },
     {
       "ticker": "GOOGL",
@@ -135,8 +135,8 @@
     },
     {
       "date": "2026-10-14",
-      "equity": 100981.4,
-      "benchmark": 100727.64
+      "equity": 100971.19,
+      "benchmark": 100718.48
     }
   ],
   "trades": [
@@ -241,5 +241,5 @@
       "reason": "New pick: #10 with score 74 (Strong Buy); strongest on growth 100, sentiment 100"
     }
   ],
-  "updatedAt": "2026-10-14T20:08:38.912Z"
+  "updatedAt": "2026-10-14T21:38:24.509Z"
 }
