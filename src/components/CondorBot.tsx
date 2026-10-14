@@ -67,7 +67,7 @@ export function CondorBot() {
             positions.map((t) => (
               <PositionCard key={t.date} trade={t} rules={r} spot={spot} live={live?.marketHours === MarketHours.Regular} tail={tail} />
             ))}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
             <Tile label="Account" value={usd0(bot.equity)} sub={<Change value={(bot.equity / r.startCash - 1) * 100} />} />
             <Tile
               label={bot.open ? "Open condor" : "Last condor"}
@@ -160,15 +160,18 @@ export function CondorBot() {
             </ul>
           )}
 
-          <p className="mt-4 text-xs text-muted">
-            In the last half hour of each market day it checks whether the condor expiring today is a win or a loss, sets the next
-            size from the ladder ({levels.join(", ")} contracts: a loss moves up a level, any win goes back to level 1, and a loss on
-            level {levels.length} starts over), then sells a SPY iron condor expiring the next trading day with ${r.width} wings
-            {r.evenMoney ? `, short strikes placed so it collects about $${(r.width * 50).toFixed(0)}` : ""}. It skips a day if the
-            condor pays under ${((r.minCredit ?? 0) * 100).toFixed(0)}, or if a Fed decision, CPI or jobs report lands while it would be
-            open. Fills use the quoted mid less ${r.slippage.toFixed(2)} per spread (Yahoo Finance quotes, which can be delayed), and
-            each condor settles at the 4:00pm close. Starts with {usd0(r.startCash)}. Paper money only.
-          </p>
+          <details className="mt-4 text-xs text-muted">
+            <summary className="cursor-pointer font-medium text-text-2">How the bot trades</summary>
+            <p className="mt-2">
+              In the last half hour of each market day it checks whether the condor expiring today is a win or a loss, sets the next
+              size from the ladder ({levels.join(", ")} contracts: a loss moves up a level, any win goes back to level 1, and a loss on
+              level {levels.length} starts over), then sells a SPY iron condor expiring the next trading day with ${r.width} wings
+              {r.evenMoney ? `, short strikes placed so it collects about $${(r.width * 50).toFixed(0)}` : ""}. It skips a day if the
+              condor pays under ${((r.minCredit ?? 0) * 100).toFixed(0)}, or if a Fed decision, CPI or jobs report lands while it would be
+              open. Fills use the quoted mid less ${r.slippage.toFixed(2)} per spread (Yahoo Finance quotes, which can be delayed), and
+              each condor settles at the 4:00pm close. Starts with {usd0(r.startCash)}. Paper money only.
+            </p>
+          </details>
         </>
       )}
     </section>
@@ -177,9 +180,9 @@ export function CondorBot() {
 
 function Tile({ label, value, sub }: { label: string; value: string; sub: React.ReactNode }) {
   return (
-    <div className="rounded-xl bg-surface-2 p-3">
+    <div className="min-w-0 rounded-xl bg-surface-2 p-3">
       <div className="text-xs text-muted">{label}</div>
-      <div className="num mt-1 text-xl font-semibold">{value}</div>
+      <div className="num mt-1 truncate text-lg font-semibold sm:text-xl">{value}</div>
       <div className="mt-0.5 text-xs">{sub}</div>
     </div>
   );
