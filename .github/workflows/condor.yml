@@ -1,22 +1,19 @@
-# Runs the SPY condor bot (scripts/condor.ts) through each trading day. One
-# run started any time during the day stays alive until after the close
-# (scripts/condor-session.sh): it steps the bot in the last half hour, where
-# it opens the next condor, and after the official close to settle; a run
-# that starts too early hands off to a fresh one before its time limit.
-# GitHub skips scheduled runs when busy (all of them on 2026-10-13), so this
-# has many schedule slots through the day and is also started by the deploy
-# workflow (workflow_dispatch, which GitHub doesn't skip); any one of them
-# covers the day. Runs share one concurrency group, so only one steps the bot
-# at a time; one that starts after the close just steps once and exits.
+# Runs the SPY condor bot (scripts/condor.ts) around the clock. Each run
+# (scripts/condor-session.sh) steps the bot in the last half hour of every
+# trading day, where it opens the next condor, and after the official close
+# to settle; jobs are limited to six hours, so before its limit each run
+# starts a fresh one to take over (workflow_dispatch, which GitHub doesn't
+# skip). The chain needs nothing else to keep going. The schedule below only
+# restarts it if GitHub ever loses a run. Runs share one concurrency group,
+# so a scheduled run that finds the chain running waits in line (GitHub keeps
+# only the newest waiting run), and exactly one run carries the chain on.
 # Its state is saved on the fund-data branch; the deploy workflow publishes it.
 name: Condor bot
 
 on:
   schedule:
-    # Every 20 minutes, 13:07-21:47 UTC (about 8am-5:45pm New York time in
-    # either daylight saving or standard time; the script reads the New York
-    # clock itself).
-    - cron: "7,27,47 13-21 * * 1-5"
+    # Fallback only (see above): every 30 minutes, off the crowded :00/:30.
+    - cron: "17,47 * * * *"
   workflow_dispatch:
     inputs:
       times:
