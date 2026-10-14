@@ -213,7 +213,7 @@ function BotPanel({ bot, prices }: { bot: BotState | null; prices: LivePrices })
   if (!bot) return <Headline label="SPY condor bot · paper money" value={null} change={null} />;
   // With a condor open, show the account as if it settled at SPY's live price.
   const v = liveBot(bot, prices.SPY);
-  const levels = bot.rules.levels ?? [1, 2, 5, 10, 25];
+  const levels = bot.rules.levels ?? [1, 3, 6];
   const level = bot.open?.level ?? bot.level ?? 0;
   const wins = bot.trades.filter((t) => (t.pnl ?? 0) >= 0).length;
   const last = bot.trades[0];

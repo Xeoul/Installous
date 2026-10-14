@@ -21,7 +21,7 @@ import {
   type IndexBar,
 } from "@/lib/options";
 
-const LEVELS = [1, 2, 5, 10, 25];
+const LEVELS = [1, 3, 6];
 
 const seriesFor = (levels: number[] | null): ChartSeries[] => [
   { key: "fixed", label: "Same size every trade", color: "var(--accent)" },
@@ -105,7 +105,7 @@ export default function OptionsLab() {
           <span className="rounded-md border border-border bg-surface-2 px-2 py-0.5 text-xs font-medium text-text-2">Paper money</span>
         </div>
         <p className="mt-1 max-w-3xl text-text-2">
-          Sell SPY iron condors with martingale sizing: a loss moves up a level (1, 2, 5, 10, 25 contracts), any win goes
+          Sell SPY iron condors with martingale sizing: a loss moves up a level (1, 3, 6 contracts), any win goes
           back to level 1. The live bot rolls into a next-day condor in the last half hour of each market day at real
           quotes; the simulator below replays the same idea over 20 years.
         </p>

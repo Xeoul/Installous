@@ -28,6 +28,12 @@ async function readState(): Promise<BotState | null> {
 
 async function main() {
   const prev = await readState();
+  // The live bot always trades the current rules (e.g. a new contract ladder);
+  // a level past the end of a shorter ladder starts over at level 1.
+  if (prev) {
+    prev.rules = { ...BOT_RULES };
+    if (prev.level >= BOT_RULES.levels.length) prev.level = 0;
+  }
   const now = new Date();
   const today = nyDate(now);
   // Same-day: today's expiration. Next-day: the first one after today.

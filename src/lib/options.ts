@@ -1,7 +1,6 @@
 // Paper-tests SPY (S&P 500 ETF) iron condors over historical daily data, with
-// either a fixed size or martingale sizing (a level ladder such as 1, 2, 5,
-// 10, 25 contracts, or doubling after every loss; back to the start after a
-// win). Real historical option prices aren't free, so
+// either a fixed size or martingale sizing (a level ladder such as 1, 3, 6
+// contracts, or doubling after every loss; back to the start after a win). Real historical option prices aren't free, so
 // each option is priced with Black-Scholes using the VIX as its volatility.
 // That's an estimate: it ignores skew and intraday moves, and real fills
 // differ. It's good enough to show how a strategy and its sizing behave over
@@ -101,7 +100,7 @@ export const DEFAULT_RULES: CondorRules = {
   startCash: 25_000,
   sizing: "martingale",
   maxDoublings: null,
-  levels: [1, 2, 5, 10, 25],
+  levels: [1, 3, 6],
   feePerLeg: 0.04,
   slippage: 0.01,
   ivScale: 1,

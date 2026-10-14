@@ -45,7 +45,7 @@ export const BOT_RULES: BotRules = {
   shortDelta: 0.1,
   // $4 wings with ~$2 credit: about +$200 on a win, -$200 on a full loss, per condor.
   width: 4,
-  levels: [1, 2, 5, 10, 25],
+  levels: [1, 3, 6],
   startCash: 25_000,
   feePerLeg: 0.04,
   slippage: 0.01,

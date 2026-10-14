@@ -120,7 +120,7 @@ describe("stepBot", () => {
     s = step(s, "2026-10-14", "15:40", chain("2026-10-15", down));
     expect(s.settling).toMatchObject({ expiry: "2026-10-14", rolled: { spot: down } });
     expect(s.settling!.rolled!.pnl).toBeLessThan(-150);
-    expect(s.open).toMatchObject({ date: "2026-10-14", expiry: "2026-10-15", level: 1, contracts: 2 });
+    expect(s.open).toMatchObject({ date: "2026-10-14", expiry: "2026-10-15", level: 1, contracts: 3 });
 
     // The official close books the loss without moving the level again.
     s = step(s, "2026-10-14", "16:30", null, { "2026-10-14": down });
@@ -189,10 +189,10 @@ describe("stepBot", () => {
     expect(new Set(perDay).size).toBe(perDay.length);
     for (const t of all) expect(t.contracts).toBe(ladder[t.level]);
     // The first opens at level 1; then each loss climbs the ladder and each win drops back to level 1.
-    expect([...s.trades].reverse().map((t) => t.contracts)).toEqual([1, 1, 2, 1, 2, 1, 2]);
+    expect([...s.trades].reverse().map((t) => t.contracts)).toEqual([1, 1, 3, 1, 3, 1, 3]);
   });
 
-  it("climbs the ladder 1, 2, 5, 10, 25 and starts over after a loss on level 5", () => {
+  it("climbs the ladder 1, 3, 6 and starts over after a loss on level 3", () => {
     let s = start(1_000_000);
     const sizes: number[] = [];
     const days = ["2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-19", "2026-10-20", "2026-10-21"];
@@ -204,7 +204,7 @@ describe("stepBot", () => {
       closes[days[i]] = spot;
       sizes.push(s.open!.contracts);
     }
-    expect(sizes).toEqual([1, 2, 5, 10, 25, 1]);
+    expect(sizes).toEqual([1, 3, 6, 1, 3, 6]);
     // Every settled condor is on the record.
     expect(s.trades).toHaveLength(days.length - 3);
   });
@@ -218,7 +218,7 @@ describe("stepBot", () => {
     expect(s.trades[0].pnl).toBeLessThan(0);
     expect(s.level).toBe(1);
     s = step(s, "2026-10-15", "15:40", chain("2026-10-16"));
-    expect(s.open).toMatchObject({ contracts: 2, level: 1 });
+    expect(s.open).toMatchObject({ contracts: 3, level: 1 });
   });
 
   it("skips a day when a Fed decision, CPI or jobs report would land while the condor is open", () => {
@@ -237,7 +237,7 @@ describe("stepBot", () => {
   });
 
   it("goes all-in when it can't afford the level's size, and bust when it can't afford one", () => {
-    const s = step({ ...start(500), level: 3 }, "2026-10-13", "15:40", chain("2026-10-14"));
+    const s = step({ ...start(500), level: 2 }, "2026-10-13", "15:40", chain("2026-10-14"));
     expect(s.open).toMatchObject({ contracts: 2, capped: true });
     const broke = step(start(150), "2026-10-13", "15:40", chain("2026-10-14"));
     expect(broke.bust).toBe("2026-10-13");
