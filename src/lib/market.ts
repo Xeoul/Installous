@@ -341,7 +341,7 @@ export async function getChain(rawTicker: string, from: string): Promise<Chain> 
   };
 }
 
-/** Daily SPY bars since 2006 joined with the VIX close, for the Options Lab. */
+/** Daily SPY bars since 2006 joined with the VIX close, for backtesting condor strategies with src/lib/options.ts. */
 export async function getIndexBars(): Promise<IndexBar[]> {
   return cached("index-bars", 60 * MINUTE, async () => {
     const period1 = new Date("2006-01-01");
