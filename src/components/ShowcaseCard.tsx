@@ -3,15 +3,16 @@
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Change } from "@/components/Change";
+import { OrderTicket, PositionCard } from "@/components/CondorLive";
 import { LineChart } from "@/components/LineChart";
 import { RollingNumber } from "@/components/RollingNumber";
 import { getCondorBot, getFund } from "@/lib/client-data";
-import { botName, botQuoteTicker, type BotState } from "@/lib/condor-bot";
+import { botName, botQuoteTicker, type BotState, type BotTrade } from "@/lib/condor-bot";
 import { fmtMonthDay } from "@/lib/dates";
 import { money, signedPct, usd0 } from "@/lib/format";
 import type { FundView } from "@/lib/fund";
 import { MarketHours } from "@/lib/live/pricing";
-import { useLivePrices } from "@/lib/live/useLivePrice";
+import { useLivePrices, useLiveTail } from "@/lib/live/useLivePrice";
 import { liveBot, liveFund, livePortfolio, type LivePrices } from "@/lib/live/valuations";
 import type { PortfolioSnapshot } from "@/lib/portfolio";
 
@@ -112,7 +113,7 @@ export function ShowcaseCard({ portfolio }: { portfolio: PortfolioSnapshot | nul
         {shown === "fund" ? (
           <FundPanel fund={fund} prices={prices} />
         ) : shown === "options" ? (
-          <BotPanel bot={bot} prices={prices} />
+          <BotPanel bot={bot} prices={prices} onUpdate={setBot} />
         ) : (
           <PortfolioPanel p={portfolio!} prices={prices} />
         )}
@@ -209,8 +210,14 @@ function FundPanel({ fund, prices }: { fund: FundView | null; prices: LivePrices
   );
 }
 
-function BotPanel({ bot, prices }: { bot: BotState | null; prices: LivePrices }) {
+function BotPanel({ bot, prices, onUpdate }: { bot: BotState | null; prices: LivePrices; onUpdate: (b: BotState) => void }) {
+  // The same live view as the Options Lab: today's order, then each open condor marked live.
+  const positions = [bot?.settling, bot?.open].filter((t): t is BotTrade => !!t);
+  const quote = bot && positions.length ? botQuoteTicker(bot.rules) : null;
+  const tail = useLiveTail(quote, 15_000);
   if (!bot) return <Headline label="Condor bot · paper money" value={null} change={null} />;
+  const name = botName(bot.rules);
+  const livePrice = quote ? prices[quote] : undefined;
   // With a condor open, show the account as if it settled at the index's live price.
   const v = liveBot(bot, prices[botQuoteTicker(bot.rules)]);
   const levels = bot.rules.levels ?? [1, 3, 6];
@@ -220,20 +227,26 @@ function BotPanel({ bot, prices }: { bot: BotState | null; prices: LivePrices })
   return (
     <>
       <Headline
-        label={`${botName(bot.rules)} condor bot · paper money`}
+        label={`${name} condor bot · paper money`}
         value={v.equity}
         change={<Change value={(v.equity / bot.rules.startCash - 1) * 100} />}
         sub={v.live ? `if settled now · open condor ${v.unsettled >= 0 ? "+" : "−"}${usd0(Math.abs(v.unsettled))}` : `since ${fmtMonthDay(bot.startDate)}`}
         live={v.live}
       />
+      <div className="mt-4">
+        <OrderTicket bot={bot} onUpdate={onUpdate} name={name} />
+        {positions.map((t) => (
+          <PositionCard key={t.date} trade={t} rules={bot.rules} spot={livePrice ?? t.spot} live={livePrice !== undefined} tail={tail} name={name} />
+        ))}
+      </div>
       {bot.history.length >= 2 ? (
         <MiniChart history={bot.history} series={[{ key: "equity", label: "Bot account", color: "var(--series-2)" }]} caption="Condor bot account value by day" />
       ) : (
-        <p className="mt-3 rounded-xl bg-surface-2 px-3 py-2.5 text-sm text-text-2">
-          {bot.open
-            ? `Holding ${bot.open.contracts}× ${bot.open.putShort}/${bot.open.callShort} for ${usd0(bot.open.credit * 100 * bot.open.contracts)}, settles ${fmtMonthDay(bot.open.expiry)}.`
-            : "The chart starts once the first condor settles. The bot trades in the last half hour of each market day."}
-        </p>
+        positions.length === 0 && (
+          <p className="mt-3 rounded-xl bg-surface-2 px-3 py-2.5 text-sm text-text-2">
+            The chart starts once the first condor settles. The bot trades in the last half hour of each market day.
+          </p>
+        )
       )}
       <Stats
         items={[
