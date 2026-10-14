@@ -31,6 +31,14 @@ async function main() {
   // The live bot always trades the current rules (e.g. a new contract ladder);
   // a level past the end of a shorter ladder starts over at level 1.
   if (prev) {
+    // A switch of underlying (SPY → SPX): a condor still open on the old one
+    // can't be priced or settled on the new one, so it's cancelled unfilled
+    // (paper money) and the bot trades the new underlying from here on.
+    if (prev.rules.ticker !== BOT_RULES.ticker && (prev.open || prev.settling)) {
+      console.log(`Cancelling open ${prev.rules.ticker} condors: the bot now trades ${BOT_RULES.ticker}`);
+      prev.open = null;
+      prev.settling = null;
+    }
     prev.rules = { ...BOT_RULES };
     if (prev.level >= BOT_RULES.levels.length) prev.level = 0;
   }
