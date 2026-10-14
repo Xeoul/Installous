@@ -36,15 +36,30 @@ export interface BotRules {
   minCredit: number;
   /** Don't hold a condor through a Fed decision, CPI or jobs report. */
   skipNews: boolean;
+  /** Symbol for the underlying's price and closes when it differs from the options symbol (^GSPC for ^SPX). */
+  quoteTicker?: string;
+  /** Distance between listed strikes (SPX: 5, SPY: 1). */
+  strikeStep?: number;
+  /** Display name ("SPX"). */
+  name?: string;
 }
 
+/** The symbol to stream and settle the bot's underlying from. */
+export const botQuoteTicker = (r: Pick<BotRules, "ticker" | "quoteTicker">) => r.quoteTicker ?? r.ticker;
+/** The underlying's display name. */
+export const botName = (r: Pick<BotRules, "ticker" | "name">) => r.name ?? r.ticker.replace(/^\^/, "");
+
 export const BOT_RULES: BotRules = {
-  ticker: "SPY",
+  // S&P 500 index options (cash-settled at the 4pm close), priced off the index itself.
+  ticker: "^SPX",
+  quoteTicker: "^GSPC",
+  name: "SPX",
+  strikeStep: 5,
   expiryDays: 1,
   evenMoney: true,
   shortDelta: 0.1,
-  // $4 wings with ~$2 credit: about +$200 on a win, -$200 on a full loss, per condor.
-  width: 4,
+  // 5-point wings with ~$2.50 credit: about +$250 on a win, -$250 on a full loss, per condor.
+  width: 5,
   levels: [1, 3, 6],
   startCash: 25_000,
   feePerLeg: 0.04,
@@ -190,10 +205,13 @@ function evenMoneyCondor(chain: Chain, rules: BotRules) {
   const puts = byStrike(chain.puts);
   const calls = byStrike(chain.calls);
   const target = rules.width / 2;
+  const step = rules.strikeStep ?? 1;
+  const atOrBelow = Math.floor(chain.spot / step) * step;
+  const atOrAbove = Math.ceil(chain.spot / step) * step;
   let best: { put: { short: ChainLeg; long: ChainLeg }; call: { short: ChainLeg; long: ChainLeg }; credit: number } | null = null;
   for (let d = 0; d <= 40; d++) {
-    const ps = puts.get(Math.floor(chain.spot) - d);
-    const cs = calls.get(Math.ceil(chain.spot) + d);
+    const ps = puts.get(atOrBelow - d * step);
+    const cs = calls.get(atOrAbove + d * step);
     const pl = ps && puts.get(ps.strike - rules.width);
     const cl = cs && calls.get(cs.strike + rules.width);
     if (!ps || !cs || !pl || !cl || ps.bid <= 0 || cs.bid <= 0) continue;

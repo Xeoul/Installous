@@ -1,4 +1,4 @@
-// Advance the SPY condor bot one step: settle its trade at the official close
+// Advance the SPX condor bot one step: settle its trade at the official close
 // on the expiration day, and open the next iron condor at real quotes once
 // in the last half hour of the session. scripts/condor-session.sh runs this
 // several times a day from the condor workflow.
@@ -8,7 +8,7 @@
 //   NTFY_TOPIC phone notifications for opens, settlements and skips (scripts/notify.ts)
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
-import { BOT_RULES, nyDate, stepBot, type BotState, type Chain } from "../src/lib/condor-bot";
+import { BOT_RULES, botQuoteTicker, nyDate, stepBot, type BotState, type Chain } from "../src/lib/condor-bot";
 import { getChain, getDailyCloses } from "../src/lib/market";
 import { condorNotifications } from "../src/lib/notifications";
 import { notify } from "./notify";
@@ -31,6 +31,14 @@ async function main() {
   // The live bot always trades the current rules (e.g. a new contract ladder);
   // a level past the end of a shorter ladder starts over at level 1.
   if (prev) {
+    // A switch of underlying (SPY → SPX): a condor still open on the old one
+    // can't be priced or settled on the new one, so it's cancelled unfilled
+    // (paper money) and the bot trades the new underlying from here on.
+    if (prev.rules.ticker !== BOT_RULES.ticker && (prev.open || prev.settling)) {
+      console.log(`Cancelling open ${prev.rules.ticker} condors: the bot now trades ${BOT_RULES.ticker}`);
+      prev.open = null;
+      prev.settling = null;
+    }
     prev.rules = { ...BOT_RULES };
     if (prev.level >= BOT_RULES.levels.length) prev.level = 0;
   }
@@ -44,7 +52,7 @@ async function main() {
   } catch (err) {
     console.warn(`No option chain: ${(err as Error).message}`);
   }
-  const closes = Object.fromEntries((await getDailyCloses(BOT_RULES.ticker, 0.1)).map((c) => [c.date, Math.round(c.close * 100) / 100]));
+  const closes = Object.fromEntries((await getDailyCloses(botQuoteTicker(BOT_RULES), 0.1)).map((c) => [c.date, Math.round(c.close * 100) / 100]));
 
   const { state, events } = stepBot(prev, { now, chain, closes });
 

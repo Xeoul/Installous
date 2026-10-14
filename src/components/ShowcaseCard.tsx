@@ -6,7 +6,7 @@ import { Change } from "@/components/Change";
 import { LineChart } from "@/components/LineChart";
 import { RollingNumber } from "@/components/RollingNumber";
 import { getCondorBot, getFund } from "@/lib/client-data";
-import type { BotState } from "@/lib/condor-bot";
+import { botName, botQuoteTicker, type BotState } from "@/lib/condor-bot";
 import { fmtMonthDay } from "@/lib/dates";
 import { money, signedPct, usd0 } from "@/lib/format";
 import type { FundView } from "@/lib/fund";
@@ -75,8 +75,8 @@ export function ShowcaseCard({ portfolio }: { portfolio: PortfolioSnapshot | nul
     shown === "fund"
       ? [...(fund?.holdings.map((h) => h.ticker) ?? []), "SPY"]
       : shown === "options"
-        ? bot?.open || bot?.settling
-          ? ["SPY"]
+        ? bot && (bot.open || bot.settling)
+          ? [botQuoteTicker(bot.rules)]
           : []
         : (portfolio?.holdings.map((h) => h.ticker) ?? []);
   const ticks = useLivePrices(tickers);
@@ -210,9 +210,9 @@ function FundPanel({ fund, prices }: { fund: FundView | null; prices: LivePrices
 }
 
 function BotPanel({ bot, prices }: { bot: BotState | null; prices: LivePrices }) {
-  if (!bot) return <Headline label="SPY condor bot · paper money" value={null} change={null} />;
-  // With a condor open, show the account as if it settled at SPY's live price.
-  const v = liveBot(bot, prices.SPY);
+  if (!bot) return <Headline label="Condor bot · paper money" value={null} change={null} />;
+  // With a condor open, show the account as if it settled at the index's live price.
+  const v = liveBot(bot, prices[botQuoteTicker(bot.rules)]);
   const levels = bot.rules.levels ?? [1, 3, 6];
   const level = bot.open?.level ?? bot.level ?? 0;
   const wins = bot.trades.filter((t) => (t.pnl ?? 0) >= 0).length;
@@ -220,7 +220,7 @@ function BotPanel({ bot, prices }: { bot: BotState | null; prices: LivePrices })
   return (
     <>
       <Headline
-        label="SPY condor bot · paper money"
+        label={`${botName(bot.rules)} condor bot · paper money`}
         value={v.equity}
         change={<Change value={(v.equity / bot.rules.startCash - 1) * 100} />}
         sub={v.live ? `if settled now · open condor ${v.unsettled >= 0 ? "+" : "−"}${usd0(Math.abs(v.unsettled))}` : `since ${fmtMonthDay(bot.startDate)}`}

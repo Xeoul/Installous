@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  BOT_RULES,
+  BOT_RULES as LIVE_RULES,
   condorFromChain,
   impliedMove,
   newBotState,
@@ -8,6 +8,7 @@ import {
   nyMinutes,
   pnlAt,
   stepBot,
+  type BotRules,
   type BotState,
   type Chain,
 } from "@/lib/condor-bot";
@@ -28,7 +29,10 @@ function chain(expiry: string, spot = 500, days = 1): Chain {
   return { expiry, spot, marketOpen: true, puts: strikes.map((k) => leg("put", k)), calls: strikes.map((k) => leg("call", k)) };
 }
 
-const start = (equity = BOT_RULES.startCash): BotState => ({ ...newBotState(at("2026-10-12", "09:00")), equity });
+// The logic tests run on SPY-style rules ($1 strikes, $4 wings) with synthetic chains around 500;
+// the live SPX rules get their own test.
+const BOT_RULES: BotRules = { ...LIVE_RULES, ticker: "SPY", quoteTicker: undefined, name: undefined, strikeStep: 1, width: 4 };
+const start = (equity = BOT_RULES.startCash): BotState => ({ ...newBotState(at("2026-10-12", "09:00"), BOT_RULES), equity });
 const step = (s: BotState, date: string, time: string, c: Chain | null, closes: Record<string, number> = {}) =>
   stepBot(s, { now: at(date, time), chain: c, closes }).state;
 
@@ -62,6 +66,22 @@ describe("condorFromChain", () => {
     const s = step(start(), "2026-10-13", "15:40", bad);
     expect(s.bust).toBeNull();
     expect(s.open).toBeNull();
+  });
+
+  it("picks SPX strikes on its 5-point grid, about half the wing width", () => {
+    const spot = 7703.6;
+    const t = 1 / 252;
+    const strikes = Array.from({ length: 41 }, (_, i) => 7600 + i * 5);
+    const leg = (kind: "put" | "call", k: number) => {
+      const fair = bsPrice(kind, spot, k, t, 0.15);
+      return { strike: k, bid: Math.max(0, fair - 0.05), ask: fair + 0.05 };
+    };
+    const c = condorFromChain({ expiry: "2026-10-15", spot, marketOpen: true, puts: strikes.map((k) => leg("put", k)), calls: strikes.map((k) => leg("call", k)) }, LIVE_RULES)!;
+    for (const k of [c.putLong, c.putShort, c.callShort, c.callLong]) expect(k % 5).toBe(0);
+    expect(c.putShort - c.putLong).toBe(5);
+    expect(c.callLong - c.callShort).toBe(5);
+    expect(c.credit).toBeGreaterThan(1.5);
+    expect(c.credit).toBeLessThan(3.5);
   });
 
   it("can still pick strikes by delta", () => {
@@ -247,7 +267,7 @@ describe("stepBot", () => {
     const v2 = { ...start(), version: 2, rules: { ...BOT_RULES, levels: undefined, contracts: 1 }, level: undefined, settling: undefined } as unknown as BotState;
     const s = step(v2, "2026-10-13", "15:40", chain("2026-10-14"));
     expect(s.version).toBe(3);
-    expect(s.rules).toEqual(BOT_RULES);
+    expect(s.rules).toEqual(LIVE_RULES);
     expect(s.open).toMatchObject({ level: 0, expiry: "2026-10-14" });
   });
 });

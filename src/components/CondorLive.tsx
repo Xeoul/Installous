@@ -36,7 +36,7 @@ function countdown(ms: number): string {
  * Today's order, like a brokerage order ticket: a countdown to 3:27pm, a
  * working order while the bot places it (polling for the fill), then filled.
  */
-export function OrderTicket({ bot, onUpdate }: { bot: BotState; onUpdate: (b: BotState) => void }) {
+export function OrderTicket({ bot, onUpdate, name }: { bot: BotState; onUpdate: (b: BotState) => void; name: string }) {
   const now = useNow(1000);
   const status = orderPhase(bot, now);
   const levels = bot.rules.levels ?? [1];
@@ -91,13 +91,13 @@ export function OrderTicket({ bot, onUpdate }: { bot: BotState; onUpdate: (b: Bo
           <p className="num mt-1 text-sm text-text-2">
             {status.phase === "filled" ? (
               <>
-                Sold {status.trade.contracts}× SPY iron condor · level {status.trade.level + 1} · credit{" "}
+                Sold {status.trade.contracts}× {name} iron condor · level {status.trade.level + 1} · credit{" "}
                 <span className="font-semibold text-up">{usd0(status.trade.credit * 100 * status.trade.contracts)}</span> · expires{" "}
                 {fmtWeekday(status.trade.expiry)}
               </>
             ) : (
               <>
-                Sell {size}× SPY iron condor · level {bot.level + 1} of {levels.length} · expires next trading day
+                Sell {size}× {name} iron condor · level {bot.level + 1} of {levels.length} · expires next trading day
               </>
             )}
           </p>
@@ -118,7 +118,7 @@ export function OrderTicket({ bot, onUpdate }: { bot: BotState; onUpdate: (b: Bo
 }
 
 /** An open condor, marked live like a brokerage position. */
-export function PositionCard({ trade, rules, spot, live, tail }: { trade: BotTrade; rules: BotRules; spot: number; live: boolean; tail: TailPoint[] }) {
+export function PositionCard({ trade, rules, spot, live, tail, name }: { trade: BotTrade; rules: BotRules; spot: number; live: boolean; tail: TailPoint[]; name: string }) {
   const now = useNow(5000, live);
   const vol = useMemo(() => impliedVol(trade, rules.slippage), [trade, rules.slippage]);
   const mark = markCondor(trade, spot, now, vol, rules.feePerLeg);
@@ -132,7 +132,7 @@ export function PositionCard({ trade, rules, spot, live, tail }: { trade: BotTra
     <div className="mb-4 rounded-xl border border-border p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-sm font-semibold">
-          SPY Iron Condor · {trade.contracts}× · L{trade.level + 1}
+          {name} Iron Condor · {trade.contracts}× · L{trade.level + 1}
         </div>
         <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${expiresToday ? "bg-warn/15 text-warn" : "bg-up/15 text-up"}`}>
           {close.getTime() <= now.getTime() ? "Settling" : expiresToday ? `Expires today · ${countdown(close.getTime() - now.getTime())}` : `Expires ${fmtWeekday(trade.expiry)}`}
@@ -157,7 +157,7 @@ export function PositionCard({ trade, rules, spot, live, tail }: { trade: BotTra
       </div>
 
       <dl className="num mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-        <Stat label="SPY" value={<RollingNumber value={spot.toFixed(2)} />} />
+        <Stat label={name} value={<RollingNumber value={spot.toFixed(2)} />} />
         <Stat label="If it expired here" value={<span className={mark.atExpiry >= 0 ? "text-up" : "text-down"}>{signed2(mark.atExpiry)}</span>} />
         <Stat label="Credit (max profit)" value={usd0(credit)} />
         <Stat label="Max loss" value={usd0(maxLoss)} />
@@ -188,7 +188,7 @@ export function PositionCard({ trade, rules, spot, live, tail }: { trade: BotTra
         </tbody>
       </table>
       <p className="mt-2 text-[11px] text-muted">
-        Leg prices are estimates from SPY&apos;s live price at the volatility the bot&apos;s fill implied ({(vol * 100).toFixed(0)}%); the
+        Leg prices are estimates from {name}&apos;s live price at the volatility the bot&apos;s fill implied ({(vol * 100).toFixed(0)}%); the
         condor settles at the 4:00pm close on {fmtWeekday(trade.expiry)}.
       </p>
     </div>
@@ -207,7 +207,7 @@ function Stat({ label, value }: { label: string; value: React.ReactNode }) {
 /** Profit or loss through today's session, from SPY's streamed ticks. */
 function PnlSpark({ trade, rules, vol, tail }: { trade: BotTrade; rules: BotRules; vol: number; tail: TailPoint[] }) {
   const pts = tail.map((p) => markCondor(trade, p.close, new Date(p.t), vol, rules.feePerLeg).pnl);
-  if (pts.length < 2) return <div className="w-40 text-[11px] text-muted sm:text-right">Live P/L chart starts with the next SPY tick</div>;
+  if (pts.length < 2) return <div className="w-40 text-[11px] text-muted sm:text-right">Live P/L chart starts with the next tick</div>;
   const lo = Math.min(0, ...pts);
   const hi = Math.max(0, ...pts);
   const y = (v: number) => 46 - ((v - lo) / (hi - lo || 1)) * 44;
