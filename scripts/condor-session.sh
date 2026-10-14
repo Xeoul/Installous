@@ -4,7 +4,8 @@
 # Any run that starts during the trading day steps the bot once right away
 # (settling anything due), then sleeps until each time in TIMES (New York
 # clock) and steps it again: a few times in the last half hour, where it
-# opens the next condor, and once after the official close to settle.
+# opens the next condor, and right after the official close to settle
+# (16:06, with 16:20 as a retry).
 # The bot itself decides what to do at each step; extra steps are harmless.
 # Runs chain around the clock: jobs are limited to six hours, so each run
 # waits as long as it can and then starts a fresh run of this workflow to
@@ -19,7 +20,7 @@
 #   PUBLISH      when set, the command that republishes the site after new notifications
 set -uo pipefail
 
-TIMES=${TIMES:-"15:27 15:35 15:43 15:51 16:20"}
+TIMES=${TIMES:-"15:27 15:35 15:43 15:51 16:06 16:20"}
 deadline=$(($(date +%s) + ${BUDGET_MIN:-330} * 60))
 
 save() {
