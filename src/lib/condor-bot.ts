@@ -144,7 +144,7 @@ export interface BotInput {
 }
 
 const MULTIPLIER = 100;
-const CLOSE_FINAL = 16 * 60 + 15; // by 4:15pm ET the day's close is final
+const CLOSE_FINAL = 16 * 60 + 5; // by 4:05pm ET the day's close is in
 
 export { nyDate };
 export function nyMinutes(d: Date): number {
@@ -301,7 +301,7 @@ export function stepBot(prev: BotState | null, input: BotInput): { state: BotSta
   const minutes = nyMinutes(input.now);
 
   // 1. Settle condors at the official close on their expiration day. (During
-  // that session Yahoo's daily "close" is just the latest price, so wait for 4:15.)
+  // that session Yahoo's daily "close" is just the latest price, so wait for 4:05.)
   for (const slot of ["settling", "open"] as const) {
     const t = state[slot];
     const close = t ? input.closes[t.expiry] : undefined;
