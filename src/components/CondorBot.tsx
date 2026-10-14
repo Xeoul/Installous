@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { OrderTicket, PositionCard } from "@/components/CondorLive";
 import { Change } from "@/components/Change";
 import { FundChart } from "@/components/FundChart";
 import { getCondorBot } from "@/lib/client-data";
 import type { BotState, BotTrade } from "@/lib/condor-bot";
 import { fmtWeekday as fmtDate, nyDate } from "@/lib/dates";
 import { signedUsd0 as signed, usd0 } from "@/lib/format";
-import { useLivePrice } from "@/lib/live/useLivePrice";
+import { MarketHours } from "@/lib/live/pricing";
+import { useLivePrice, useLiveTail } from "@/lib/live/useLivePrice";
 import { upcomingNews } from "@/lib/news-days";
-import { settlement } from "@/lib/options";
 
 const strikes = (t: BotTrade) => `${t.putLong}/${t.putShort}p · ${t.callShort}/${t.callLong}c`;
 const DEFAULT_LEVELS = [1, 3, 6];
@@ -33,18 +34,19 @@ export function CondorBot() {
   const openLevel = bot?.open?.level ?? level;
   const afterLoss = openLevel + 1 >= levels.length ? levels[0] : levels[openLevel + 1];
   const wins = bot?.trades.filter((t) => (t.pnl ?? 0) >= 0).length ?? 0;
-  // While a condor is open, show what it would pay if SPY settled at the live price,
-  // the way you'd check it in the last minutes before the close.
-  const watching = bot?.settling ?? bot?.open ?? null;
-  const live = useLivePrice(watching && !bot?.bust ? (r?.ticker ?? "SPY") : null);
-  const now = watching && live && r ? projected(watching, live.price, r.feePerLeg) : null;
+  // Open condors are marked live from SPY's streamed price, like positions in a brokerage app.
+  const positions = [bot?.settling, bot?.open].filter((t): t is BotTrade => !!t);
+  const ticker = positions.length ? (r?.ticker ?? "SPY") : null;
+  const live = useLivePrice(ticker);
+  const tail = useLiveTail(ticker, 15_000);
+  const spot = live?.price ?? positions.at(-1)?.spot;
   const skips = upcomingNews(nyDate(new Date()), 3);
 
   return (
     <section className="rounded-2xl border border-border bg-surface p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-text-2">
-          {watching && !bot?.bust && <span className="live-dot" aria-hidden />}
+          {positions.length > 0 && !bot?.bust && <span className="live-dot" aria-hidden />}
           Live SPY martingale bot
         </h2>
         {bot && (
@@ -60,6 +62,11 @@ export function CondorBot() {
         <div className="h-40 animate-pulse rounded-lg bg-surface-2" />
       ) : (
         <>
+          <OrderTicket bot={bot} onUpdate={setBot} />
+          {spot !== undefined &&
+            positions.map((t) => (
+              <PositionCard key={t.date} trade={t} rules={r} spot={spot} live={live?.marketHours === MarketHours.Regular} tail={tail} />
+            ))}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Tile label="Account" value={usd0(bot.equity)} sub={<Change value={(bot.equity / r.startCash - 1) * 100} />} />
             <Tile
@@ -107,15 +114,6 @@ export function CondorBot() {
               sub={<span className="text-text-2">{bot.trades.length ? `${Math.round((wins / bot.trades.length) * 100)}% won` : "None settled yet"}</span>}
             />
           </div>
-
-          {now && live && watching && (
-            <p className="num mt-3 flex flex-wrap items-baseline gap-x-2 text-sm text-text-2" aria-live="polite">
-              <span className="live-dot" aria-hidden />
-              {bot.settling ? `Condor expiring ${fmtDate(watching.expiry)}, if` : "If"} SPY settled now at {live.price.toFixed(2)}:
-              <span className={`font-semibold ${now.pnl >= 0 ? "text-up" : "text-down"}`}>{signed(now.pnl)}</span>
-              <span>· {now.label}</span>
-            </p>
-          )}
 
           {bot.settling?.rolled && (
             <p className="mt-2 text-xs text-text-2">
@@ -175,15 +173,6 @@ export function CondorBot() {
       )}
     </section>
   );
-}
-
-/** What an open condor would pay if it settled at `price`, and whether that's a full win, full loss or partial. */
-function projected(t: BotTrade, price: number, feePerLeg: number) {
-  const owed = settlement(t, price);
-  const pnl = (t.credit - owed) * 100 * t.contracts - 4 * feePerLeg * t.contracts;
-  const maxOwed = Math.max(t.putShort - t.putLong, t.callLong - t.callShort);
-  const label = owed === 0 ? "full win" : owed >= maxOwed ? "full loss" : pnl >= 0 ? "partial win" : "partial loss";
-  return { pnl, label };
 }
 
 function Tile({ label, value, sub }: { label: string; value: string; sub: React.ReactNode }) {

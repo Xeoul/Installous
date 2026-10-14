@@ -230,3 +230,22 @@ a, button, select, summary, [role="tab"] {
     animation: none !important;
   }
 }
+
+/* A filled order: a quick green pulse around the order ticket. */
+.fill-flash {
+  animation: fill-flash 2.4s ease-out;
+}
+@keyframes fill-flash {
+  0%,
+  30% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--up) 45%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fill-flash {
+    animation: none;
+  }
+}
