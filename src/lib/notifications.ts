@@ -1,7 +1,7 @@
-// Phone notifications for the condor bot and the AI Fund: what to say, as
+// Phone notifications for the condor bot: what to say, as
 // pure functions of their saved states (scripts/notify.ts sends them).
 import type { BotState, BotTrade } from "./condor-bot";
-import { fmtMonthDay, fmtWeekday } from "./dates";
+import { fmtWeekday } from "./dates";
 import { maxLossPerShare } from "./options";
 
 export interface Notification {
@@ -21,7 +21,6 @@ const signedPct = (v: number) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(2
 // Whole dollars and one-decimal percents for the one-line versions.
 const usd0 = (v: number) => `${v < 0 ? "−" : ""}$${Math.round(Math.abs(v)).toLocaleString("en-US")}`;
 const signedUsd0 = (v: number) => `${v >= 0 ? "+" : "−"}${usd0(Math.abs(v))}`;
-const signedPct1 = (v: number) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(1)}%`;
 const strikes = (t: BotTrade) => `${t.putLong}/${t.putShort}p · ${t.callShort}/${t.callLong}c`;
 
 /** What changed in the condor bot between two saved states, as notifications. */
@@ -38,7 +37,7 @@ export function condorNotifications(prev: BotState | null, state: BotState): Not
     const before = after - pnl;
     out.push({
       title: `Iron condor ${pnl >= 0 ? "won" : "lost"} ${signedUsd(pnl)} (${signedPct((pnl / before) * 100)})`,
-      short: `Condor ${pnl >= 0 ? "won" : "lost"} ${signedUsd0(pnl)} (${signedPct1((pnl / before) * 100)}), account ${usd0(after)}`,
+      short: `Condor ${pnl >= 0 ? "won" : "lost"} ${signedUsd0(pnl)}`,
       message:
         `SPY closed ${t.close} on ${fmtWeekday(t.expiry)} · ${t.contracts}× ${strikes(t)}.\n` +
         `Account ${usd(after)} · ${signedUsd(after - start)} (${signedPct((after / start - 1) * 100)}) total.`,
@@ -54,7 +53,7 @@ export function condorNotifications(prev: BotState | null, state: BotState): Not
     const maxLoss = maxLossPerShare(open) * 100 * open.contracts;
     out.push({
       title: `Iron condor opened · level ${open.level + 1} of ${levels.length}, ${open.contracts}×`,
-      short: `Condor opened: level ${open.level + 1}, ${open.contracts}× ${open.putShort}/${open.callShort}, ${usd0(credit)} credit, risk ${usd0(maxLoss)}`,
+      short: `Condor opened · level ${open.level + 1} (${open.contracts} contract${open.contracts === 1 ? "" : "s"})`,
       message:
         `SPY ${strikes(open)} for ${usd(credit)} credit (SPY ${open.spot.toFixed(2)}).\n` +
         `Expires ${fmtWeekday(open.expiry)} at the close · win up to ${usd(credit)}, lose up to ${usd(maxLoss)}.` +
@@ -71,38 +70,4 @@ export function condorNotifications(prev: BotState | null, state: BotState): Not
     out.push({ title: "No iron condor today", short: `No condor today: ${state.note.replace(/^Skipped: /, "").replace(/, while the condor would be open\.$/, "").replace(/\.$/, "")}`, message: state.note, tags: ["pause_button"], path: "/options/" });
   }
   return out;
-}
-
-export interface FundDay {
-  date: string;
-  startDate: string;
-  startCash: number;
-  equity: number;
-  /** The fund's value at the previous close. */
-  prevEquity: number;
-  /** SPY at today's and the previous close, and on the start date. */
-  spy: number;
-  prevSpy: number;
-  spyStart: number;
-  trades: { side: "buy" | "sell"; ticker: string; value: number }[];
-}
-
-/** The AI Fund's end-of-day summary. */
-export function fundNotification(d: FundDay): Notification {
-  const day = d.equity - d.prevEquity;
-  const total = d.equity - d.startCash;
-  const lines = [
-    `Value ${usd(d.equity)} · ${signedUsd(total)} (${signedPct((total / d.startCash) * 100)}) since ${fmtMonthDay(d.startDate)}.`,
-    `S&P 500 ${signedPct((d.spy / d.prevSpy - 1) * 100)} today, ${signedPct((d.spy / d.spyStart - 1) * 100)} total.`,
-  ];
-  const bought = d.trades.filter((t) => t.side === "buy").map((t) => t.ticker);
-  const sold = d.trades.filter((t) => t.side === "sell").map((t) => t.ticker);
-  if (bought.length || sold.length) lines.push([sold.length ? `Sold ${sold.join(", ")}` : "", bought.length ? `Bought ${bought.join(", ")}` : ""].filter(Boolean).join(" · ") + ".");
-  return {
-    title: `AI Fund ${signedUsd(day)} (${signedPct((day / d.prevEquity) * 100)}) today`,
-    short: `AI Fund ${signedUsd0(day)} (${signedPct((day / d.prevEquity) * 100)}) today, ${signedPct((total / d.startCash) * 100)} total vs S&P ${signedPct((d.spy / d.spyStart - 1) * 100)}`,
-    message: lines.join("\n"),
-    tags: [day >= 0 ? "moneybag" : "small_red_triangle_down"],
-    path: "/fund/",
-  };
 }
