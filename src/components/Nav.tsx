@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { MarketClock } from "./MarketClock";
 import { TickerSearch } from "./TickerSearch";
 
 const LINKS = [
@@ -44,7 +45,10 @@ export function Nav() {
             );
           })}
         </nav>
-        <div className="ml-auto min-w-0 flex-1 sm:w-64 sm:flex-none lg:w-52">
+        <div className="ml-auto">
+          <MarketClock />
+        </div>
+        <div className="min-w-0 flex-1 sm:w-64 sm:flex-none lg:w-auto lg:max-w-52 lg:flex-1">
           <TickerSearch />
         </div>
       </div>

@@ -21,11 +21,6 @@ export interface StockData {
   score: StockScore;
 }
 
-export interface DemoMeta {
-  generatedAt: string;
-  tickers: number;
-}
-
 export function stockHref(ticker: string) {
   return `/stock?symbol=${encodeURIComponent(ticker)}`;
 }
@@ -129,10 +124,6 @@ async function demoSupports(ticker: string): Promise<boolean> {
 
 // ---------------------------------------------------------------------------
 // Public API used by the pages
-
-export function getDemoMeta(): Promise<DemoMeta> {
-  return snapshot<DemoMeta>("meta.json");
-}
 
 /** The AI Fund's latest published state. */
 export function getFund(): Promise<FundView> {
