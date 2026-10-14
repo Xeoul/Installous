@@ -15,7 +15,7 @@ import { upcomingNews } from "@/lib/news-days";
 const strikes = (t: BotTrade) => `${t.putLong}/${t.putShort}p · ${t.callShort}/${t.callLong}c`;
 const DEFAULT_LEVELS = [1, 3, 6];
 
-/** The live paper bot: SPY iron condors held to the next day's close, sized by the level ladder. */
+/** The live paper bot: SPX iron condors held to the next day's close, sized by the level ladder. */
 export function CondorBot() {
   const [bot, setBot] = useState<BotState | null>(null);
   const [error, setError] = useState(false);
@@ -34,7 +34,7 @@ export function CondorBot() {
   const openLevel = bot?.open?.level ?? level;
   const afterLoss = openLevel + 1 >= levels.length ? levels[0] : levels[openLevel + 1];
   const wins = bot?.trades.filter((t) => (t.pnl ?? 0) >= 0).length ?? 0;
-  // Open condors are marked live from SPY's streamed price, like positions in a brokerage app.
+  // Open condors are marked live from the index's streamed price, like positions in a brokerage app.
   const positions = [bot?.settling, bot?.open].filter((t): t is BotTrade => !!t);
   const ticker = positions.length && r ? botQuoteTicker(r) : null;
   const name = r ? botName(r) : "SPX";

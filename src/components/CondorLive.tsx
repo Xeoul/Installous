@@ -204,7 +204,7 @@ function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-/** Profit or loss through today's session, from SPY's streamed ticks. */
+/** Profit or loss through today's session, from the index's streamed ticks. */
 function PnlSpark({ trade, rules, vol, tail }: { trade: BotTrade; rules: BotRules; vol: number; tail: TailPoint[] }) {
   const pts = tail.map((p) => markCondor(trade, p.close, new Date(p.t), vol, rules.feePerLeg).pnl);
   if (pts.length < 2) return <div className="w-40 text-[11px] text-muted sm:text-right">Live P/L chart starts with the next tick</div>;
@@ -221,7 +221,7 @@ function PnlSpark({ trade, rules, vol, tail }: { trade: BotTrade; rules: BotRule
   );
 }
 
-/** Profit or loss across SPY prices: at expiry (solid) and if closed now (dashed), with SPY marked. */
+/** Profit or loss across SPY prices: at expiry (solid) and if closed now (dashed), with the index marked. */
 function PayoffChart({ trade, rules, spot, vol, now }: { trade: BotTrade; rules: BotRules; spot: number; vol: number; now: Date }) {
   const id = useId();
   const W = 320;
@@ -239,7 +239,7 @@ function PayoffChart({ trade, rules, spot, vol, now }: { trade: BotTrade; rules:
   const zero = y(0);
   const area = `${path(exp)}L${W},${zero}L0,${zero}Z`;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="mx-auto mt-3 block w-full max-w-md" role="img" aria-label={`Payoff: profit between ${trade.putShort} and ${trade.callShort}, SPY at ${spot.toFixed(2)}`}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="mx-auto mt-3 block w-full max-w-md" role="img" aria-label={`Payoff: profit between ${trade.putShort} and ${trade.callShort}, index at ${spot.toFixed(2)}`}>
       <defs>
         <clipPath id={`${id}a`}>
           <rect x="0" y="0" width={W} height={zero} />
