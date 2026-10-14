@@ -255,11 +255,22 @@ function PayoffChart({ trade, rules, spot, vol, now }: { trade: BotTrade; rules:
       {years > 0 && <path d={path(today)} fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeDasharray="4 3" />}
       <line x1={x(spot)} x2={x(spot)} y1="4" y2={H - 16} stroke="var(--accent)" strokeWidth="1.5" />
       <circle cx={x(spot)} cy={y(markCondor(trade, spot, now, vol, rules.feePerLeg).pnl)} r="3.5" fill="var(--accent)" />
-      {[trade.putLong, trade.putShort, trade.callShort, trade.callLong].map((k) => (
+      {strikeLabels(trade, x).map((k) => (
         <text key={k} x={x(k)} y={H - 3} textAnchor="middle" fontSize="9" fill="var(--muted)">
           {k}
         </text>
       ))}
     </svg>
   );
+}
+
+/** Strikes to label under the payoff chart: always the shorts, and the wings when there's room (SPX's are close together). */
+function strikeLabels(t: BotTrade, x: (s: number) => number): number[] {
+  const room = (a: number, b: number) => Math.abs(x(a) - x(b)) >= String(Math.max(a, b)).length * 6 + 4;
+  return [
+    ...(room(t.putLong, t.putShort) ? [t.putLong] : []),
+    t.putShort,
+    t.callShort,
+    ...(room(t.callShort, t.callLong) ? [t.callLong] : []),
+  ];
 }
