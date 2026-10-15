@@ -154,7 +154,7 @@ export function PositionCard({ trade, rules, spot, live, tail, name }: { trade: 
             {Math.abs(mark.pctOfMax).toFixed(1)}% of max profit
           </div>
         </div>
-        <SpxDayChart trade={trade} tail={tail} spot={spot} name={name} />
+        <SpxDayChart tail={tail} spot={spot} name={name} />
       </div>
 
       <dl className="num mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
@@ -221,8 +221,8 @@ function useSpxDay(): ChartData | null {
   return day;
 }
 
-/** The index through today's session: published 5-minute bars, then live ticks, with the condor's profit zone shaded. */
-function SpxDayChart({ trade, tail, spot, name }: { trade: BotTrade; tail: TailPoint[]; spot: number; name: string }) {
+/** The index through today's session, like a brokerage app's 1D chart: published 5-minute bars, then live ticks. */
+function SpxDayChart({ tail, spot, name }: { tail: TailPoint[]; spot: number; name: string }) {
   const day = useSpxDay();
   const now = useNow(60_000);
   const W = 224;
@@ -231,38 +231,39 @@ function SpxDayChart({ trade, tail, spot, name }: { trade: BotTrade; tail: TailP
   const latest = Math.max(tail.at(-1)?.t ?? 0, day?.points.at(-1)?.t ?? 0) || now.getTime();
   const end = nyClose(nyDate(new Date(latest))).getTime();
   const start = end - 6.5 * 3_600_000;
-  const pts = [
-    ...(day?.points ?? []).filter((p) => p.t >= start && p.t <= end),
-    ...tail.filter((p) => p.t >= start && p.t <= end && p.t > (day?.points.at(-1)?.t ?? 0)),
-  ];
+  const bars = (day?.points ?? []).filter((p) => p.t >= start && p.t <= end);
+  const pts = [...bars, ...tail.filter((p) => p.t >= start && p.t <= end && p.t > (bars.at(-1)?.t ?? 0))];
   if (pts.length < 2) return <div className="w-40 text-[11px] text-muted sm:text-right">{name} chart loads with the next update</div>;
+  // Change from the previous close (published with the bars), else from the first point shown.
+  const base = bars.length && day ? day.baseline : pts[0].close;
+  // The live price once ticks stream; until then the latest bar (the card's fallback is the fill's price).
+  const price = tail.length ? spot : pts.at(-1)!.close;
+  const change = price - base;
+  const up = change >= 0;
+  const color = up ? "var(--up)" : "var(--down)";
   const closes = pts.map((p) => p.close);
-  const lo = Math.min(...closes, trade.putShort) - 4;
-  const hi = Math.max(...closes, trade.callShort) + 4;
-  const x = (t: number) => ((t - start) / (end - start)) * (W - 30);
-  const y = (v: number) => 4 + ((hi - v) / (hi - lo)) * (H - 8);
+  const lo = Math.min(...closes, base);
+  const hi = Math.max(...closes, base);
+  const pad = (hi - lo) * 0.08 || 1;
+  const x = (t: number) => ((t - start) / (end - start)) * W;
+  const y = (v: number) => ((hi + pad - v) / (hi - lo + 2 * pad)) * H;
   const line = pts.map((p) => `${x(p.t).toFixed(1)},${y(p.close).toFixed(1)}`).join(" ");
   const last = pts.at(-1)!;
-  const inside = spot > trade.putShort && spot < trade.callShort;
   return (
     <div className="w-full sm:w-56">
-      <div className="mb-0.5 flex items-center justify-between text-[11px] text-muted">
-        <span>{name} today</span>
-        <span className={inside ? "text-up" : "text-down"}>{inside ? "inside the shorts" : "outside a short strike"}</span>
+      <div className="mb-1 flex items-baseline justify-between gap-2 text-xs">
+        <span className="font-semibold">{name}</span>
+        <span className={`num ${up ? "text-up" : "text-down"}`}>
+          <RollingNumber value={price.toFixed(2)} /> {up ? "+" : "−"}
+          {Math.abs(change).toFixed(2)} ({up ? "+" : "−"}
+          {Math.abs((change / base) * 100).toFixed(2)}%)
+        </span>
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="block h-[72px] w-full" role="img" aria-label={`${name} today, now ${spot.toFixed(2)}, short strikes ${trade.putShort} and ${trade.callShort}`}>
-        {/* The profit zone between the short strikes. */}
-        <rect x="0" y={y(trade.callShort)} width={W - 30} height={y(trade.putShort) - y(trade.callShort)} fill="var(--up)" opacity="0.1" />
-        {[trade.callShort, trade.putShort].map((k) => (
-          <g key={k}>
-            <line x1="0" x2={W - 30} y1={y(k)} y2={y(k)} stroke="var(--up)" strokeDasharray="3 3" opacity="0.7" />
-            <text x={W - 27} y={y(k) + 3} fontSize="8" fill="var(--muted)" className="num">
-              {k}
-            </text>
-          </g>
-        ))}
-        <polyline points={line} fill="none" stroke="var(--accent)" strokeWidth="1.6" strokeLinejoin="round" />
-        <circle cx={x(last.t)} cy={y(last.close)} r="2.5" fill="var(--accent)" />
+      <svg viewBox={`0 0 ${W} ${H}`} className="block h-[72px] w-full overflow-visible" role="img" aria-label={`${name} today, now ${price.toFixed(2)}, ${up ? "up" : "down"} ${Math.abs(change).toFixed(2)}`}>
+        {/* The previous close, dotted, like a brokerage chart. */}
+        <line x1="0" x2={W} y1={y(base)} y2={y(base)} stroke="var(--muted)" strokeDasharray="1 3" strokeLinecap="round" opacity="0.8" />
+        <polyline points={line} fill="none" stroke={color} strokeWidth="1.6" strokeLinejoin="round" />
+        <circle cx={x(last.t)} cy={y(last.close)} r="2.5" fill={color} />
       </svg>
     </div>
   );
