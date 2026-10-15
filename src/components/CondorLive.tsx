@@ -92,7 +92,7 @@ export function OrderTicket({ bot, onUpdate, name }: { bot: BotState; onUpdate: 
           <p className="num mt-1 text-sm text-text-2">
             {status.phase === "filled" ? (
               <>
-                Sold {status.trade.contracts}× {name} iron condor · level {status.trade.level + 1} · credit{" "}
+                Sold {status.trade.contracts}× {name} iron condor · level {status.trade.level + 1} · {strikesOf(status.trade)} · credit{" "}
                 <span className="font-semibold text-up">{usd0(status.trade.credit * 100 * status.trade.contracts)}</span> · expires{" "}
                 {fmtWeekday(status.trade.expiry)}
               </>
@@ -112,9 +112,102 @@ export function OrderTicket({ bot, onUpdate, name }: { bot: BotState; onUpdate: 
               ))}
             </ol>
           )}
+          <OrderLog bot={bot} status={status} name={name} now={now} />
         </>
       )}
     </div>
+  );
+}
+
+const strikesOf = (t: BotTrade) => `${t.putLong}/${t.putShort}p · ${t.callShort}/${t.callLong}c`;
+const money2 = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const signedMoney2 = (v: number) => `${v >= 0 ? "+" : "−"}${money2(Math.abs(v))}`;
+
+/** Where a result moves the ladder, in words. */
+function ladderWhy(from: number, to: number, won: boolean, levels: number[]): string {
+  if (won) return from === 0 ? "a win keeps it at level 1" : "a win resets to level 1";
+  return to === 0 ? `a loss on level ${levels.length} starts over at level 1` : "a loss moves up a level";
+}
+
+/**
+ * The order, step by step, the way a log reads: the settled condor and the
+ * level it sets, the strikes and legs picked, the order sent and the fill.
+ */
+function OrderLog({ bot, status, name, now }: { bot: BotState; status: ReturnType<typeof orderPhase>; name: string; now: Date }) {
+  const levels = bot.rules.levels ?? [1];
+  const steps: { label: string; lines: React.ReactNode[] }[] = [];
+  if (status.phase === "filled") {
+    const t = status.trade;
+    const settled = bot.trades.find((x) => x.expiry === t.date);
+    const pnl = settled?.pnl ?? 0;
+    steps.push({
+      label: "Check today's condor",
+      lines: settled
+        ? [
+            `${fmtWeekday(settled.expiry)} condor ${strikesOf(settled)} × ${settled.contracts} settled at ${name}'s close ${settled.close?.toFixed(2)}`,
+            `${pnl >= 0 ? "Won" : "Lost"} ${signedMoney2(pnl)} → level ${settled.level + 1} → level ${t.level + 1} (${ladderWhy(settled.level, t.level, pnl >= 0, levels)})`,
+          ]
+        : [`No condor expired today · trading level ${t.level + 1} of ${levels.length}`],
+    });
+    const perContract = t.credit * 100;
+    steps.push({
+      label: "Pick strikes",
+      lines: [
+        `${name} ${t.spot.toFixed(2)} when priced (quotes run ~15 min behind) · expiry ${fmtWeekday(t.expiry)} · ${t.callShort - t.putShort} points between the short strikes`,
+        `Buy ${t.contracts} ${t.putLong} put · Sell ${t.contracts} ${t.putShort} put · Sell ${t.contracts} ${t.callShort} call · Buy ${t.contracts} ${t.callLong} call`,
+        `Short put ${(t.spot - t.putShort).toFixed(2)} below, short call ${(t.callShort - t.spot).toFixed(2)} above · break-even ${(t.putShort - t.credit).toFixed(2)} / ${(t.callShort + t.credit).toFixed(2)}`,
+      ],
+    });
+    steps.push({
+      label: "Send order",
+      lines: [
+        `Sell ${t.contracts}× ${name} iron condor at the quoted mid less ${money2(bot.rules.slippage)} a spread`,
+        `Level ${t.level + 1} of ${levels.length} → ${levels[t.level]} contract${levels[t.level] === 1 ? "" : "s"}${t.capped ? ` (capped at ${t.contracts} by the cash on hand)` : ""}`,
+      ],
+    });
+    steps.push({
+      label: "Filled",
+      lines: [
+        `${new Date(t.openedAt).toLocaleTimeString("en-US", { timeZone: "America/Los_Angeles", hour: "numeric", minute: "2-digit", second: "2-digit" })} PT · credit ${money2(t.credit)} × 100 × ${t.contracts} = ${money2(perContract * t.contracts)}`,
+        `Most it can make ${money2(perContract * t.contracts)} · most it can lose ${money2((Math.max(t.putShort - t.putLong, t.callLong - t.callShort) - t.credit) * 100 * t.contracts)} · account ${money2(bot.equity)}`,
+      ],
+    });
+  } else if (status.phase === "waiting" || status.phase === "working") {
+    const expiring = [bot.settling, bot.open].find((x) => x && x.expiry === nyDate(now));
+    const lvl = expiring?.level ?? bot.level;
+    const afterLoss = lvl + 1 >= levels.length ? 0 : lvl + 1;
+    steps.push({
+      label: "Plan",
+      lines: [
+        expiring
+          ? `Settle the ${fmtWeekday(expiring.expiry)} condor ${strikesOf(expiring)} × ${expiring.contracts} at ${name}'s 1:00pm PT close`
+          : `No condor expiring today · trading level ${bot.level + 1} of ${levels.length}`,
+        expiring
+          ? `Then open the next one: a win → level 1 (${levels[0]}×), a loss → level ${afterLoss + 1} (${levels[afterLoss]}×)`
+          : `Then open the next one at level ${bot.level + 1} (${levels[bot.level] ?? levels[0]}×)`,
+        `Short strikes placed for about ${money2(bot.rules.width * 50)} credit per contract on ${bot.rules.width}-point wings`,
+      ],
+    });
+  }
+  if (!steps.length) return null;
+  return (
+    <details className="group mt-2 rounded-md bg-surface px-2.5 py-1.5 text-[11px]">
+      <summary className="cursor-pointer select-none font-medium text-text-2">Order details</summary>
+      <ol className="mt-1.5 space-y-1.5 font-mono leading-relaxed">
+        {steps.map((st, i) => (
+          <li key={st.label}>
+            <div className={status.phase === "filled" ? "text-up" : "text-text"}>
+              {status.phase === "filled" ? "✓" : "›"} {i + 1}. {st.label}
+            </div>
+            {st.lines.map((l, j) => (
+              <div key={j} className="break-words pl-4 text-text-2">
+                {l}
+              </div>
+            ))}
+          </li>
+        ))}
+      </ol>
+    </details>
   );
 }
 
