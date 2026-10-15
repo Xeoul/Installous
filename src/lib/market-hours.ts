@@ -66,12 +66,18 @@ export function untilLabel(ms: number): string {
   return h ? (m ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
 }
 
-/** When the market opens next, in words: "9:30 AM", "tomorrow 9:30 AM" or "Mon 9:30 AM" (New York time). */
-export function opensLabel(next: Date, now: Date): string {
-  const time = next.toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" });
-  const { date } = nyParts(now);
-  const target = nyParts(next).date;
+/** The calendar date of a moment in a time zone. */
+const zoneDate = (d: Date, timeZone: string) => d.toLocaleDateString("en-CA", { timeZone });
+
+/**
+ * When the market opens next, in words, on the clock of `timeZone` (Pacific by
+ * default): "6:30 AM", "tomorrow 6:30 AM" or "Mon 6:30 AM".
+ */
+export function opensLabel(next: Date, now: Date, timeZone = "America/Los_Angeles"): string {
+  const time = next.toLocaleTimeString("en-US", { timeZone, hour: "numeric", minute: "2-digit" });
+  const date = zoneDate(now, timeZone);
+  const target = zoneDate(next, timeZone);
   if (target === date) return time;
   if (target === nextDate(date)) return `tomorrow ${time}`;
-  return `${next.toLocaleDateString("en-US", { timeZone: "America/New_York", weekday: "short" })} ${time}`;
+  return `${next.toLocaleDateString("en-US", { timeZone, weekday: "short" })} ${time}`;
 }
