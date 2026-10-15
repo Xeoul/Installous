@@ -22,10 +22,15 @@ describe("market hours", () => {
     expect(untilLabel(120 * 60_000)).toBe("2h");
     expect(untilLabel(45 * 60_000 - 1)).toBe("45m");
     const now = at("2026-10-16T21:00:00Z");
-    expect(opensLabel(marketStatus(now).next, now)).toBe("Mon 9:30 AM");
+    // On the Pacific clock by default.
+    expect(opensLabel(marketStatus(now).next, now)).toBe("Mon 6:30 AM");
     const tonight = at("2026-10-14T22:00:00Z");
-    expect(opensLabel(marketStatus(tonight).next, tonight)).toBe("tomorrow 9:30 AM");
+    expect(opensLabel(marketStatus(tonight).next, tonight)).toBe("tomorrow 6:30 AM");
     const early = at("2026-10-14T12:00:00Z");
-    expect(opensLabel(marketStatus(early).next, early)).toBe("9:30 AM");
+    expect(opensLabel(marketStatus(early).next, early)).toBe("6:30 AM");
+    // 10pm Pacific is already the next day in New York: "tomorrow" follows the Pacific date.
+    const late = at("2026-10-15T05:00:00Z");
+    expect(opensLabel(marketStatus(late).next, late)).toBe("tomorrow 6:30 AM");
+    expect(opensLabel(marketStatus(late).next, late, "America/New_York")).toBe("9:30 AM");
   });
 });
