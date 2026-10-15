@@ -238,6 +238,12 @@ function PayoffChart({ trade, rules, spot, vol, now }: { trade: BotTrade; rules:
   const path = (pts: { spot: number; pnl: number }[]) => pts.map((p, i) => `${i ? "L" : "M"}${x(p.spot).toFixed(1)},${y(p.pnl).toFixed(1)}`).join("");
   const zero = y(0);
   const area = `${path(exp)}L${W},${zero}L0,${zero}Z`;
+  const dotY = y(markCondor(trade, spot, now, vol, rules.feePerLeg).pnl);
+  const priceLabel = spot.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const labelW = priceLabel.length * 5.4 + 8;
+  const labelX = x(spot) + 7 + labelW <= W ? x(spot) + 7 : x(spot) - 7 - labelW;
+  // Beside the dot, kept inside the chart (below it when the dot sits at the top edge).
+  const labelY = Math.min(Math.max(dotY + 3, 12), H - 20);
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="mx-auto mt-3 block w-full max-w-md" role="img" aria-label={`Payoff: profit between ${trade.putShort} and ${trade.callShort}, index at ${spot.toFixed(2)}`}>
       <defs>
@@ -254,7 +260,14 @@ function PayoffChart({ trade, rules, spot, vol, now }: { trade: BotTrade; rules:
       <path d={path(exp)} fill="none" stroke="var(--text-2)" strokeWidth="1.5" />
       {years > 0 && <path d={path(today)} fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeDasharray="4 3" />}
       <line x1={x(spot)} x2={x(spot)} y1="4" y2={H - 16} stroke="var(--accent)" strokeWidth="1.5" />
-      <circle cx={x(spot)} cy={y(markCondor(trade, spot, now, vol, rules.feePerLeg).pnl)} r="3.5" fill="var(--accent)" />
+      <circle cx={x(spot)} cy={dotY} r="3.5" fill="var(--accent)" />
+      {/* The index price beside the dot, on whichever side has room. */}
+      <g aria-hidden>
+        <rect x={labelX} y={labelY - 8} width={labelW} height="12" rx="3" fill="var(--accent)" />
+        <text x={labelX + labelW / 2} y={labelY + 1} textAnchor="middle" fontSize="9" fontWeight="600" fill="white" className="num">
+          {priceLabel}
+        </text>
+      </g>
       {strikeLabels(trade, x).map((k) => (
         <text key={k} x={x(k)} y={H - 3} textAnchor="middle" fontSize="9" fill="var(--muted)">
           {k}
