@@ -117,74 +117,73 @@ describe("stepBot", () => {
     expect(nyMinutes(at("2026-10-13", "15:45"))).toBe(15 * 60 + 45);
   });
 
-  it("opens only in the last half hour, with a next-day chain, while the market is open", () => {
+  it("opens only right after the close, with a next-day chain, while index options trade", () => {
     expect(step(start(), "2026-10-13", "10:00", chain("2026-10-14")).open).toBeNull();
-    expect(step(start(), "2026-10-13", "15:59", chain("2026-10-14")).open).toBeNull();
-    const sameDay = step(start(), "2026-10-13", "15:40", chain("2026-10-13"));
+    expect(step(start(), "2026-10-13", "15:40", chain("2026-10-14")).open).toBeNull(); // before the close: never
+    expect(step(start(), "2026-10-13", "16:15", chain("2026-10-14")).open).toBeNull(); // index options have stopped
+    const sameDay = step(start(), "2026-10-13", "16:06", chain("2026-10-13"));
     expect(sameDay.open).toBeNull();
     expect(sameDay.note).toMatch(/next-day/);
-    expect(step(start(), "2026-11-27", "15:40", { ...chain("2026-11-30"), marketOpen: false }).open).toBeNull();
+    expect(step(start(), "2026-10-13", "16:06", { ...chain("2026-10-14"), marketOpen: false }).open).toBeNull();
 
-    const s = step(start(), "2026-10-13", "15:40", chain("2026-10-14"));
+    const s = step(start(), "2026-10-13", "16:06", chain("2026-10-14"));
     expect(s.open).toMatchObject({ date: "2026-10-13", expiry: "2026-10-14", contracts: 1, level: 0 });
     // Only one new condor a day.
-    expect(step(s, "2026-10-13", "15:50", chain("2026-10-14")).open).toEqual(s.open);
+    expect(step(s, "2026-10-13", "16:10", chain("2026-10-14")).open).toEqual(s.open);
   });
 
-  it("trades daily: rolls into the next condor near the close, sized from the expiring one's result", () => {
-    let s = step(start(), "2026-10-13", "15:40", chain("2026-10-14"));
+  it("settles today's condor at the close first, then sizes the next one from that real result", () => {
+    let s = step(start(), "2026-10-13", "16:06", chain("2026-10-14"));
     const first = s.open!;
 
-    // Next day near the close SPY is far below the put wing: a full loss, so level 2.
-    const down = first.putLong - 5;
-    s = step(s, "2026-10-14", "15:40", chain("2026-10-15", down));
-    expect(s.settling).toMatchObject({ expiry: "2026-10-14", rolled: { spot: down } });
-    expect(s.settling!.rolled!.pnl).toBeLessThan(-150);
-    expect(s.open).toMatchObject({ date: "2026-10-14", expiry: "2026-10-15", level: 1, contracts: 3 });
+    // Before the close nothing happens: no guess at the result.
+    s = step(s, "2026-10-14", "15:40", chain("2026-10-15"));
+    expect(s.open).toEqual(first);
+    expect(s.trades).toHaveLength(0);
 
-    // The official close books the loss without moving the level again.
-    s = step(s, "2026-10-14", "16:30", null, { "2026-10-14": down });
-    expect(s.settling).toBeNull();
+    // At the close SPX is far below the put wing: a full loss, so the next condor is level 2.
+    const down = first.putLong - 5;
+    s = step(s, "2026-10-14", "16:06", chain("2026-10-15", down), { "2026-10-14": down });
     expect(s.trades[0]).toMatchObject({ expiry: "2026-10-14", close: down });
     expect(s.trades[0].pnl).toBeCloseTo(pnlAt(first, down, BOT_RULES.feePerLeg), 2);
-    expect(s.level).toBe(1);
+    expect(s.open).toMatchObject({ date: "2026-10-14", expiry: "2026-10-15", level: 1, contracts: 3 });
     expect(s.equity).toBeCloseTo(BOT_RULES.startCash + s.trades[0].pnl!, 2);
 
-    // Next day SPY sits between the short strikes: a win, back to level 1.
+    // Next day SPX closes between the short strikes: a win, back to level 1.
     const mid = (s.open!.putShort + s.open!.callShort) / 2;
-    s = step(s, "2026-10-15", "15:45", chain("2026-10-16", mid));
-    expect(s.settling!.rolled!.pnl).toBeGreaterThan(300);
+    s = step(s, "2026-10-15", "16:06", chain("2026-10-16", mid), { "2026-10-14": down, "2026-10-15": mid });
+    expect(s.trades[0].pnl).toBeGreaterThan(300);
     expect(s.open).toMatchObject({ level: 0, contracts: 1 });
   });
 
-  it("sizes a later open from the condor it rolled earlier in the day", () => {
-    let s = step(start(), "2026-10-13", "15:40", chain("2026-10-14"));
-    const first = s.open!;
-    // At 3:27 the credit is under the minimum, so it rolls but doesn't open.
-    const down = first.putLong - 5;
-    s = step({ ...s, rules: { ...s.rules, minCredit: 99 } }, "2026-10-14", "15:27", chain("2026-10-15", down));
-    expect(s.open).toBeNull();
-    expect(s.settling!.rolled!.pnl).toBeLessThan(0);
-    // At 3:35 it opens, counting the rolled loss against the cash on hand.
-    const low = { ...s, rules: { ...BOT_RULES }, equity: 250 + Math.abs(s.settling!.rolled!.pnl) };
-    const opened = step(low, "2026-10-14", "15:35", chain("2026-10-15", down));
-    const margin = (opened.open!.callLong - opened.open!.callShort - opened.open!.credit) * 100 + 4 * BOT_RULES.feePerLeg;
-    expect(opened.open!.contracts).toBe(Math.floor(250 / margin));
-    expect(opened.open!.contracts).toBe(1);
+  it("waits to open until today's condor has settled", () => {
+    let s = step(start(), "2026-10-13", "16:06", chain("2026-10-14"));
+    // The close isn't in yet at 4:06: wait rather than guess.
+    s = step(s, "2026-10-14", "16:06", chain("2026-10-15"));
+    expect(s.open).toMatchObject({ expiry: "2026-10-14" });
+    expect(s.note).toMatch(/Waiting for today's close/);
+    // At 4:08 it settles and opens.
+    s = step(s, "2026-10-14", "16:08", chain("2026-10-15"), { "2026-10-14": 500 });
+    expect(s.trades).toMatchObject([{ expiry: "2026-10-14" }]);
+    expect(s.open).toMatchObject({ date: "2026-10-14", expiry: "2026-10-15" });
   });
 
-  it("never drops a condor still waiting on its close", () => {
-    let s = step(start(), "2026-10-13", "15:40", chain("2026-10-14"));
-    s = step(s, "2026-10-14", "15:40", chain("2026-10-15"));
-    const waiting = s.settling!;
-    // The 14th's close never arrives; on the 15th the open condor stays put.
-    s = step(s, "2026-10-15", "15:40", chain("2026-10-16"));
-    expect(s.settling).toEqual(waiting);
-    expect(s.open).toMatchObject({ expiry: "2026-10-15" });
-    // Once the closes arrive, both settle and trading carries on.
-    s = step(s, "2026-10-16", "15:40", chain("2026-10-19"), { "2026-10-14": 500, "2026-10-15": 500 });
-    expect(s.trades.map((t) => t.expiry)).toEqual(["2026-10-15", "2026-10-14"]);
-    expect(s.open).toMatchObject({ expiry: "2026-10-19" });
+  it("corrects the ladder when an older early roll guessed wrong", () => {
+    // Saved state from the old rules: at 3:27 the expiring condor looked like a win, so the next opened at level 1.
+    let s = step(start(), "2026-10-13", "16:06", chain("2026-10-14"));
+    const expiring = { ...s.open!, rolled: { at: "", spot: 500, pnl: 200 } };
+    const next = { ...s.open!, date: "2026-10-14", expiry: "2026-10-15" };
+    s = { ...s, settling: expiring, open: next, level: 0 };
+    // It closes below the put wing: a loss after all.
+    s = step(s, "2026-10-14", "16:06", null, { "2026-10-14": expiring.putLong - 5 });
+    expect(s.trades[0].pnl).toBeLessThan(0);
+    expect(s.level).toBe(1);
+    expect(s.open).toMatchObject({ expiry: "2026-10-15", level: 1 });
+    // A win after that drops back to level 1; a guess that was right changes nothing.
+    const right = step({ ...s, settling: { ...expiring, rolled: { at: "", spot: 500, pnl: -200 } }, open: next, level: 1, trades: [] }, "2026-10-14", "16:06", null, {
+      "2026-10-14": expiring.putLong - 5,
+    });
+    expect(right.level).toBe(1);
   });
 
   it("opens exactly one condor a day, sized by its level, however often it runs", () => {
@@ -196,10 +195,10 @@ describe("stepBot", () => {
       // Lose on even days and win on odd ones, so the level moves both ways.
       const expiring = s.open;
       const spot = !expiring ? 500 : i % 2 ? (expiring.putShort + expiring.callShort) / 2 : expiring.putLong - 5;
-      // Every step of the real schedule, twice over (duplicate runs).
-      for (const time of ["10:30", "15:27", "15:27", "15:35", "15:43", "15:51", "15:58", "16:06", "16:06", "16:20", "16:35", "16:50"]) {
-        const settled = time >= "16:06" ? { ...closes, [days[i]]: spot } : closes;
-        s = step(s, days[i], time, time >= "16:06" ? null : chain(days[i + 1], spot), settled);
+      // Every step of the real schedule, twice over (duplicate runs); the close arrives at 4:05.
+      for (const time of ["10:30", "15:40", "16:06", "16:06", "16:08", "16:10", "16:12", "16:14", "16:20", "16:35", "16:50"]) {
+        const settled = time >= "16:05" ? { ...closes, [days[i]]: spot } : closes;
+        s = step(s, days[i], time, chain(days[i + 1], spot), settled);
       }
       closes[days[i]] = spot;
     }
@@ -213,15 +212,12 @@ describe("stepBot", () => {
   });
 
   it("settles at the 4:06pm step, once the close is in, and not before 4:05", () => {
-    let s = step(start(), "2026-10-13", "15:27", chain("2026-10-14"));
-    s = step(s, "2026-10-14", "15:27", chain("2026-10-15"));
-    expect(s.settling).toMatchObject({ expiry: "2026-10-14" });
+    let s = step(start(), "2026-10-13", "16:06", chain("2026-10-14"));
     // Yahoo's "close" at 4:04 can still be a pre-close price: wait.
     s = step(s, "2026-10-14", "16:04", null, { "2026-10-14": 500 });
-    expect(s.settling).not.toBeNull();
+    expect(s.open).toMatchObject({ expiry: "2026-10-14" });
     expect(s.trades).toHaveLength(0);
     s = step(s, "2026-10-14", "16:06", null, { "2026-10-14": 500 });
-    expect(s.settling).toBeNull();
     expect(s.trades).toMatchObject([{ expiry: "2026-10-14", close: 500 }]);
     expect(s.trades[0].pnl).toBeGreaterThan(0);
     // Later retry steps change nothing.
@@ -232,31 +228,29 @@ describe("stepBot", () => {
 
   it("trades only on market days: never on weekends, holidays or half days", () => {
     // Even if a quote claims the market is open, the NYSE calendar has the last word.
-    const opened = (date: string, expiry: string) => step(start(), date, "15:27", chain(expiry)).open !== null;
+    const opened = (date: string, expiry: string) => step(start(), date, "16:06", chain(expiry)).open !== null;
     expect(opened("2026-10-16", "2026-10-19")).toBe(true); // a Friday: opens, expiring Monday
     expect(opened("2026-10-17", "2026-10-19")).toBe(false); // Saturday
     expect(opened("2026-10-18", "2026-10-19")).toBe(false); // Sunday
-    // November is EST (UTC-5): 20:27Z is 3:27pm in New York.
-    const est = (date: string, expiry: string) => stepBot(start(), { now: new Date(`${date}T20:27:00Z`), chain: chain(expiry), closes: {} }).state;
+    // November is EST (UTC-5): 21:06Z is 4:06pm in New York.
+    const est = (date: string, expiry: string) => stepBot(start(), { now: new Date(`${date}T21:06:00Z`), chain: chain(expiry), closes: {} }).state;
     expect(est("2026-11-25", "2026-11-27").open).not.toBeNull(); // the day before: a normal day, trades
     expect(est("2026-11-26", "2026-11-27").open).toBeNull(); // Thanksgiving
     expect(est("2026-11-26", "2026-11-27").note).toBe("The market isn't open.");
-    expect(est("2026-11-27", "2026-11-30").open).toBeNull(); // half day: closed at 1pm
+    expect(est("2026-11-27", "2026-11-30").open).toBeNull(); // half day: options stopped at 1:15pm
   });
 
   it("holds a Friday condor over the weekend and settles it Monday", () => {
-    let s = step(start(), "2026-10-16", "15:27", chain("2026-10-19"));
+    let s = step(start(), "2026-10-16", "16:06", chain("2026-10-19"));
     expect(s.open).toMatchObject({ date: "2026-10-16", expiry: "2026-10-19" });
     // Weekend steps change nothing.
     s = step(s, "2026-10-17", "16:06", null, { "2026-10-16": 500 });
     expect(s.open).toMatchObject({ expiry: "2026-10-19" });
     expect(s.trades).toHaveLength(0);
-    // Monday: rolls into Tuesday's condor near the close, then settles Monday's at the close.
-    s = step(s, "2026-10-19", "15:27", chain("2026-10-20"));
-    expect(s.settling).toMatchObject({ expiry: "2026-10-19" });
-    expect(s.open).toMatchObject({ date: "2026-10-19", expiry: "2026-10-20" });
-    s = step(s, "2026-10-19", "16:06", null, { "2026-10-16": 500, "2026-10-19": 500 });
+    // Monday after the close: settles Monday's condor, then opens Tuesday's.
+    s = step(s, "2026-10-19", "16:06", chain("2026-10-20"), { "2026-10-16": 500, "2026-10-19": 500 });
     expect(s.trades).toMatchObject([{ date: "2026-10-16", expiry: "2026-10-19", close: 500 }]);
+    expect(s.open).toMatchObject({ date: "2026-10-19", expiry: "2026-10-20" });
   });
 
   it("climbs the ladder 1, 3, 6 and starts over after a loss on level 3", () => {
@@ -267,52 +261,52 @@ describe("stepBot", () => {
     for (let i = 0; i < days.length - 1; i++) {
       // Each day near the close, SPY is far below the expiring condor and closes there: every trade loses.
       const spot = s.open ? s.open.putLong - 5 : 500;
-      s = step(s, days[i], "15:40", chain(days[i + 1], spot), closes);
       closes[days[i]] = spot;
+      s = step(s, days[i], "16:06", chain(days[i + 1], spot), closes);
       sizes.push(s.open!.contracts);
     }
     expect(sizes).toEqual([1, 3, 6, 1, 3, 6]);
-    // Every settled condor is on the record.
-    expect(s.trades).toHaveLength(days.length - 3);
+    // Every settled condor is on the record: each settles before the next opens.
+    expect(s.trades).toHaveLength(days.length - 2);
   });
 
   it("settles from the official close when a late run was missed, and sets the level from it", () => {
-    let s = step(start(), "2026-10-13", "15:40", chain("2026-10-14"));
+    let s = step(start(), "2026-10-13", "16:06", chain("2026-10-14"));
     const { putLong } = s.open!;
     // No late run on the 14th; the morning of the 15th settles it.
     s = step(s, "2026-10-15", "10:00", null, { "2026-10-14": putLong - 5 });
     expect(s.open).toBeNull();
     expect(s.trades[0].pnl).toBeLessThan(0);
     expect(s.level).toBe(1);
-    s = step(s, "2026-10-15", "15:40", chain("2026-10-16"));
+    s = step(s, "2026-10-15", "16:06", chain("2026-10-16"));
     expect(s.open).toMatchObject({ contracts: 3, level: 1 });
   });
 
   it("skips a day when a Fed decision, CPI or jobs report would land while the condor is open", () => {
-    const s = stepBot(start(), { now: at("2026-10-27", "15:40"), chain: chain("2026-10-28"), closes: {} });
+    const s = stepBot(start(), { now: at("2026-10-27", "16:06"), chain: chain("2026-10-28"), closes: {} });
     expect(s.state.open).toBeNull();
     expect(s.state.note).toMatch(/FOMC/);
     expect(s.state.level).toBe(0);
     // With the skip off, it trades.
-    expect(step({ ...start(), rules: { ...BOT_RULES, skipNews: false } }, "2026-10-27", "15:40", chain("2026-10-28")).open).not.toBeNull();
+    expect(step({ ...start(), rules: { ...BOT_RULES, skipNews: false } }, "2026-10-27", "16:06", chain("2026-10-28")).open).not.toBeNull();
   });
 
   it("skips a day when the condor pays under the minimum credit", () => {
-    const s = step({ ...start(), rules: { ...BOT_RULES, minCredit: 3 } }, "2026-10-13", "15:40", chain("2026-10-14"));
+    const s = step({ ...start(), rules: { ...BOT_RULES, minCredit: 3 } }, "2026-10-13", "16:06", chain("2026-10-14"));
     expect(s.open).toBeNull();
     expect(s.note).toMatch(/minimum/);
   });
 
   it("goes all-in when it can't afford the level's size, and bust when it can't afford one", () => {
-    const s = step({ ...start(500), level: 2 }, "2026-10-13", "15:40", chain("2026-10-14"));
+    const s = step({ ...start(500), level: 2 }, "2026-10-13", "16:06", chain("2026-10-14"));
     expect(s.open).toMatchObject({ contracts: 2, capped: true });
-    const broke = step(start(150), "2026-10-13", "15:40", chain("2026-10-14"));
+    const broke = step(start(150), "2026-10-13", "16:06", chain("2026-10-14"));
     expect(broke.bust).toBe("2026-10-13");
   });
 
   it("moves an older saved account onto the current rules", () => {
     const v2 = { ...start(), version: 2, rules: { ...BOT_RULES, levels: undefined, contracts: 1 }, level: undefined, settling: undefined } as unknown as BotState;
-    const s = step(v2, "2026-10-13", "15:40", chain("2026-10-14"));
+    const s = step(v2, "2026-10-13", "16:06", chain("2026-10-14"));
     expect(s.version).toBe(3);
     expect(s.rules).toEqual(LIVE_RULES);
     expect(s.open).toMatchObject({ level: 0, expiry: "2026-10-14" });

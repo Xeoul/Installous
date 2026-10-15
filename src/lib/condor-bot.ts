@@ -1,17 +1,17 @@
-// A live paper-trading bot for SPY iron condors, run the way the strategy is
-// traded by hand: in the last minutes of each trading day, check whether the
-// condor expiring today is a win or a loss, set the next size from the level
-// ladder (a loss moves up a level, any win goes back to level 1), and open the
-// next condor expiring the next trading day. Each condor is held to expiration
-// and settled at SPY's official close. It skips days when a big release (Fed
+// A live paper-trading bot for SPX iron condors, run the way the strategy is
+// traded by hand: right after each trading day's close, settle the condor
+// expiring today as a win or a loss, set the next size from the level ladder
+// (a loss moves up a level, any win goes back to level 1), and open the next
+// condor expiring the next trading day (index options trade until 4:15pm).
+// Each condor is held to expiration and settled at the official close. It skips days when a big release (Fed
 // decision, CPI, jobs report) lands while the condor would be open.
 //
 // Fills use real (possibly delayed) Yahoo Finance quotes. The condor workflow
-// runs stepBot a few times in the last half hour of the session and after the
-// close; the state is saved on the fund-data branch.
+// runs stepBot a few times right after the close; the state is saved on the
+// fund-data branch.
 import { fmtWeekday, nyDate } from "./dates";
 import { newsOn, NEWS_CALENDAR_ENDS } from "./news-days";
-import { marketStatus } from "./market-hours";
+import { optionsSessionOpen } from "./market-hours";
 import { maxLossPerShare, normCdf, settlement } from "./options";
 
 export interface BotRules {
@@ -65,8 +65,10 @@ export const BOT_RULES: BotRules = {
   startCash: 25_000,
   feePerLeg: 0.04,
   slippage: 0.01,
-  openFrom: 15 * 60 + 25,
-  openUntil: 15 * 60 + 58,
+  // Right after the close, once today's condor has settled: SPX index options
+  // trade until 4:15pm, so the next condor is sized from the real result.
+  openFrom: 16 * 60 + 5,
+  openUntil: 16 * 60 + 14,
   minCredit: 1.5,
   skipNews: true,
 };
@@ -309,10 +311,17 @@ export function stepBot(prev: BotState | null, input: BotInput): { state: BotSta
     if (!t || close === undefined || !(t.expiry < today || (t.expiry === today && minutes >= CLOSE_FINAL))) continue;
     const pnl = pnlAt(t, close, rules.feePerLeg);
     state.equity = Math.round((state.equity + pnl) * 100) / 100;
-    // A rolled trade already set the next level from its result near the close.
     if (!t.rolled) {
       state.level = nextLevel(state.level, pnl, rules.levels);
       state.streak = pnl < 0 ? state.streak + 1 : 0;
+    } else if (pnl < 0 !== t.rolled.pnl < 0) {
+      // An older roll sized the next condor from a guess before the close, and
+      // the close disagreed: put the ladder where the real result puts it, and
+      // count the condor opened on that guess at the corrected level.
+      state.level = nextLevel(t.level, pnl, rules.levels);
+      state.streak = pnl < 0 ? (t.streak ?? 0) + 1 : 0;
+      if (state.open?.date === t.expiry) state.open = { ...state.open, level: state.level, streak: state.streak };
+      events.push(`Corrected the ladder: ${t.expiry} ${pnl < 0 ? "lost" : "won"} at the close, so level ${state.level + 1}`);
     }
     state.trades.unshift({ ...t, close, pnl, equityAfter: state.equity });
     state[slot] = null;
@@ -322,30 +331,21 @@ export function stepBot(prev: BotState | null, input: BotInput): { state: BotSta
     events.push(`Settled ${t.expiry}: SPY closed ${close}, ${pnl >= 0 ? "kept" : "lost"} $${Math.abs(pnl).toFixed(2)} on ${t.contracts}×`);
   }
 
-  // 2. In the last minutes of the session, roll into the next condor.
+  // 2. Right after the close, once today's condor has settled, open the next one.
   const inWindow = minutes >= rules.openFrom && minutes <= rules.openUntil;
   // One condor a day: never open another once today's is on the books,
   // whether it's still open, settling or already settled.
   const openedToday = [state.open, state.settling, state.trades[0]].some((t) => t?.date === today);
   const chain = input.chain;
-  // Trade only while the exchange is open: Yahoo must say so, and so must the
-  // NYSE calendar (weekends, holidays, and half days that close at 1pm).
-  const exchangeOpen = !!chain?.marketOpen && marketStatus(input.now).open;
-  if (inWindow && !openedToday && !state.bust && exchangeOpen) {
-    // The expiring condor's expected result, for sizing: from this roll, or
-    // from an earlier step today that rolled it but didn't open (a skip).
-    let projected = state.settling?.rolled && state.settling.expiry === today ? state.settling.rolled.pnl : 0;
-    // An older condor still waiting on its close (a missing quote) holds the
-    // settling slot; keep today's open until it clears rather than drop it.
-    if (state.open && state.open.expiry === today && !state.settling) {
-      // Today's condor is all but settled: size the next one from where SPY is now.
-      projected = pnlAt(state.open, chain.spot, rules.feePerLeg);
-      state.level = nextLevel(state.level, projected, rules.levels);
-      state.streak = projected < 0 ? state.streak + 1 : 0;
-      state.settling = { ...state.open, rolled: { at: input.now.toISOString(), spot: chain.spot, pnl: projected } };
-      state.open = null;
-      events.push(`Rolled ${today}: SPY ${chain.spot}, projected ${projected >= 0 ? "+" : "-"}$${Math.abs(projected).toFixed(0)} → level ${state.level + 1}`);
-    }
+  // Trade only while index options trade: Yahoo must have a quote, and the
+  // NYSE calendar must agree (weekends, holidays, and half days that close at 1pm).
+  const exchangeOpen = !!chain?.marketOpen && optionsSessionOpen(input.now);
+  // The next condor is sized from the expiring one's real result, so wait for it to settle.
+  const unsettled = [state.settling, state.open].some((t) => t && t.expiry <= today);
+  if (inWindow && !openedToday && !state.bust && exchangeOpen && unsettled) {
+    state.note = "Waiting for today's close to settle the condor.";
+  } else if (inWindow && !openedToday && !state.bust && exchangeOpen) {
+    const projected = 0;
 
     const news = rules.skipNews ? newsOn(chain.expiry) : [];
     const rightExpiry = rules.expiryDays === 0 ? chain.expiry === today : chain.expiry > today;

@@ -167,6 +167,14 @@ export function getHistory(ticker: string, range: ChartRange): Promise<ChartData
   return cachedJson(`/api/history/${encodeURIComponent(t)}?range=${range}`, 30_000);
 }
 
+/** The S&P 500's latest session (5-minute bars), always fresh: the demo republishes it every half hour. */
+export async function getSpxDay(): Promise<ChartData> {
+  if (!DEMO) return getHistory("^GSPC", "1d");
+  const r = await fetch(`${BASE_PATH}/demo-data/spx-1d.json?t=${Math.floor(Date.now() / 60_000)}`, { cache: "no-store" });
+  if (!r.ok) throw new Error(`Couldn't load the S&P 500 chart (${r.status})`);
+  return r.json() as Promise<ChartData>;
+}
+
 export function getEvents(ticker: string): Promise<StockEvents> {
   const t = normalize(ticker);
   if (DEMO) return snapshot(`events/${t}.json`, notInDemo(t));

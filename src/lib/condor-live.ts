@@ -124,8 +124,8 @@ export function orderPhase(bot: BotState, now: Date): OrderPhase {
   if (bot.bust || ["Sat", "Sun"].includes(weekdayNY(now))) return { phase: "closed" };
   if (bot.note?.startsWith("Skipped") && nyDate(new Date(bot.updatedAt)) === today) return { phase: "skipped", note: bot.note };
   const m = minutesNY(now);
-  // The bot steps at 3:27pm and checks again until 3:58pm.
-  if (m < bot.rules.openFrom) return { phase: "waiting", at: new Date(nyClose(today).getTime() - (16 * 60 - 15 * 60 - 27) * 60_000) };
+  // The bot steps a minute after its window opens (4:06pm, right after the close) and retries until it shuts.
+  if (m < bot.rules.openFrom) return { phase: "waiting", at: new Date(nyClose(today).getTime() + (bot.rules.openFrom + 1 - 16 * 60) * 60_000) };
   if (m <= bot.rules.openUntil + 10) return { phase: "working" };
   return { phase: "closed" };
 }

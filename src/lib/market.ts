@@ -339,7 +339,8 @@ export async function getChain(rawTicker: string, from: string): Promise<Chain> 
   return {
     expiry,
     spot,
-    marketOpen: r.quote?.marketState === "REGULAR",
+    // Index options keep trading 15 minutes past the close, when Yahoo already reports POST.
+    marketOpen: r.quote?.marketState === "REGULAR" || r.quote?.marketState === "POST",
     puts: pmLegs("put", o.puts, spot, years),
     calls: pmLegs("call", o.calls, spot, years),
   };
