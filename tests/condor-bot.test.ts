@@ -230,6 +230,35 @@ describe("stepBot", () => {
     expect(again.equity).toBe(s.equity);
   });
 
+  it("trades only on market days: never on weekends, holidays or half days", () => {
+    // Even if a quote claims the market is open, the NYSE calendar has the last word.
+    const opened = (date: string, expiry: string) => step(start(), date, "15:27", chain(expiry)).open !== null;
+    expect(opened("2026-10-16", "2026-10-19")).toBe(true); // a Friday: opens, expiring Monday
+    expect(opened("2026-10-17", "2026-10-19")).toBe(false); // Saturday
+    expect(opened("2026-10-18", "2026-10-19")).toBe(false); // Sunday
+    // November is EST (UTC-5): 20:27Z is 3:27pm in New York.
+    const est = (date: string, expiry: string) => stepBot(start(), { now: new Date(`${date}T20:27:00Z`), chain: chain(expiry), closes: {} }).state;
+    expect(est("2026-11-25", "2026-11-27").open).not.toBeNull(); // the day before: a normal day, trades
+    expect(est("2026-11-26", "2026-11-27").open).toBeNull(); // Thanksgiving
+    expect(est("2026-11-26", "2026-11-27").note).toBe("The market isn't open.");
+    expect(est("2026-11-27", "2026-11-30").open).toBeNull(); // half day: closed at 1pm
+  });
+
+  it("holds a Friday condor over the weekend and settles it Monday", () => {
+    let s = step(start(), "2026-10-16", "15:27", chain("2026-10-19"));
+    expect(s.open).toMatchObject({ date: "2026-10-16", expiry: "2026-10-19" });
+    // Weekend steps change nothing.
+    s = step(s, "2026-10-17", "16:06", null, { "2026-10-16": 500 });
+    expect(s.open).toMatchObject({ expiry: "2026-10-19" });
+    expect(s.trades).toHaveLength(0);
+    // Monday: rolls into Tuesday's condor near the close, then settles Monday's at the close.
+    s = step(s, "2026-10-19", "15:27", chain("2026-10-20"));
+    expect(s.settling).toMatchObject({ expiry: "2026-10-19" });
+    expect(s.open).toMatchObject({ date: "2026-10-19", expiry: "2026-10-20" });
+    s = step(s, "2026-10-19", "16:06", null, { "2026-10-16": 500, "2026-10-19": 500 });
+    expect(s.trades).toMatchObject([{ date: "2026-10-16", expiry: "2026-10-19", close: 500 }]);
+  });
+
   it("climbs the ladder 1, 3, 6 and starts over after a loss on level 3", () => {
     let s = start(1_000_000);
     const sizes: number[] = [];

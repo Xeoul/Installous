@@ -11,6 +11,7 @@
 // close; the state is saved on the fund-data branch.
 import { fmtWeekday, nyDate } from "./dates";
 import { newsOn, NEWS_CALENDAR_ENDS } from "./news-days";
+import { marketStatus } from "./market-hours";
 import { maxLossPerShare, normCdf, settlement } from "./options";
 
 export interface BotRules {
@@ -327,7 +328,10 @@ export function stepBot(prev: BotState | null, input: BotInput): { state: BotSta
   // whether it's still open, settling or already settled.
   const openedToday = [state.open, state.settling, state.trades[0]].some((t) => t?.date === today);
   const chain = input.chain;
-  if (inWindow && !openedToday && !state.bust && chain?.marketOpen) {
+  // Trade only while the exchange is open: Yahoo must say so, and so must the
+  // NYSE calendar (weekends, holidays, and half days that close at 1pm).
+  const exchangeOpen = !!chain?.marketOpen && marketStatus(input.now).open;
+  if (inWindow && !openedToday && !state.bust && exchangeOpen) {
     // The expiring condor's expected result, for sizing: from this roll, or
     // from an earlier step today that rolled it but didn't open (a skip).
     let projected = state.settling?.rolled && state.settling.expiry === today ? state.settling.rolled.pnl : 0;
@@ -388,7 +392,7 @@ export function stepBot(prev: BotState | null, input: BotInput): { state: BotSta
         }
       }
     }
-  } else if (inWindow && !openedToday && chain && !chain.marketOpen) {
+  } else if (inWindow && !openedToday && chain && !exchangeOpen) {
     state.note = "The market isn't open.";
   }
 
