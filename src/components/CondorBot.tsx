@@ -7,7 +7,7 @@ import { FundChart } from "@/components/FundChart";
 import { RollingNumber } from "@/components/RollingNumber";
 import { getCondorBot } from "@/lib/client-data";
 import { botName, botQuoteTicker, type BotState, type BotTrade } from "@/lib/condor-bot";
-import { fmtWeekday as fmtDate, nyDate } from "@/lib/dates";
+import { fmtMonthDay, fmtWeekday as fmtDate, nyDate } from "@/lib/dates";
 import { signedUsd0 as signed, usd0 } from "@/lib/format";
 import { MarketHours } from "@/lib/live/pricing";
 import { liveBot } from "@/lib/live/valuations";
@@ -21,6 +21,7 @@ const DEFAULT_LEVELS = [1, 3, 6];
 export function CondorBot() {
   const [bot, setBot] = useState<BotState | null>(null);
   const [error, setError] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     getCondorBot()
@@ -126,11 +127,21 @@ export function CondorBot() {
               }
             />
             <Tile
-              label="Condors"
+              label="Condors settled"
               value={String(bot.trades.length)}
-              sub={<span className="text-text-2">{bot.trades.length ? `${Math.round((wins / bot.trades.length) * 100)}% won` : "None settled yet"}</span>}
+              sub={
+                <span className="text-text-2">
+                  {bot.trades.length ? `${Math.round((wins / bot.trades.length) * 100)}% won` : "None settled yet"} ·{" "}
+                  <span className="font-medium text-accent">{showHistory ? "Hide history" : "View history"}</span>
+                </span>
+              }
+              onClick={() => setShowHistory((v) => !v)}
+              expanded={showHistory}
+              controls="condor-history"
             />
           </div>
+
+          {showHistory && <TradeHistory id="condor-history" bot={bot} positions={positions} name={name} />}
 
           {bot.settling?.rolled && (
             <p className="mt-2 text-xs text-text-2">
@@ -160,23 +171,6 @@ export function CondorBot() {
             </div>
           )}
 
-          {bot.trades.length > 0 && (
-            <ul className="mt-4 divide-y divide-border text-sm">
-              {bot.trades.slice(0, 10).map((t) => (
-                <li key={`${t.date}-${t.expiry}`} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-2">
-                  <span className="flex-1 text-xs text-muted sm:w-24 sm:flex-none">{fmtDate(t.expiry ?? t.date)}</span>
-                  <span className="num order-last w-full text-xs text-text-2 sm:order-none sm:w-auto sm:min-w-0 sm:flex-1">
-                    {strikes(t)} · {name} {t.spot.toFixed(2)} → {t.close?.toFixed(2)}
-                  </span>
-                  <span className={`num w-24 text-right text-xs ${(t.level ?? 0) > 0 ? "font-semibold text-warn" : "text-text-2"}`}>
-                    L{(t.level ?? 0) + 1} · {t.contracts}×
-                  </span>
-                  <span className={`num w-20 text-right ${t.pnl! >= 0 ? "text-up" : "text-down"}`}>{signed(t.pnl!)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-
           <details className="mt-4 text-xs text-muted">
             <summary className="cursor-pointer font-medium text-text-2">How the bot trades</summary>
             <p className="mt-2">
@@ -195,14 +189,89 @@ export function CondorBot() {
   );
 }
 
-function Tile({ label, value, sub }: { label: string; value: string; sub: React.ReactNode }) {
-  return (
-    <div className="min-w-0 rounded-xl bg-surface-2 p-3">
-      <div className="text-xs text-muted">{label}</div>
+interface TileProps {
+  label: string;
+  value: string;
+  sub: React.ReactNode;
+  /** Makes the tile a button that toggles the panel `controls` names. */
+  onClick?: () => void;
+  expanded?: boolean;
+  controls?: string;
+}
+
+function Tile({ label, value, sub, onClick, expanded, controls }: TileProps) {
+  const body = (
+    <>
+      <div className="flex items-center justify-between gap-1 text-xs text-muted">
+        {label}
+        {onClick && (
+          <svg viewBox="0 0 16 16" className={`h-3.5 w-3.5 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`} aria-hidden>
+            <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </div>
       <div className="num mt-1 truncate text-lg font-semibold sm:text-xl">
         <RollingNumber value={value} />
       </div>
       <div className="mt-0.5 text-xs">{sub}</div>
+    </>
+  );
+  if (!onClick) return <div className="min-w-0 rounded-xl bg-surface-2 p-3">{body}</div>;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={expanded}
+      aria-controls={controls}
+      className={`min-w-0 rounded-xl bg-surface-2 p-3 text-left ring-accent transition hover:ring-1 focus-visible:outline-none focus-visible:ring-2 ${expanded ? "ring-1" : ""}`}
+    >
+      {body}
+    </button>
+  );
+}
+
+/** Every condor the bot has traded, newest first: the open ones, then each settled one with its result. */
+function TradeHistory({ id, bot, positions, name }: { id: string; bot: BotState; positions: BotTrade[]; name: string }) {
+  const settled = bot.trades;
+  const total = settled.reduce((sum, t) => sum + (t.pnl ?? 0), 0);
+  const wins = settled.filter((t) => (t.pnl ?? 0) >= 0).length;
+  const rows = [...[...positions].reverse().map((t) => ({ t, open: true })), ...settled.map((t) => ({ t, open: false }))];
+  return (
+    <div id={id} className="mt-3 rounded-xl border border-border p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-sm font-semibold">Trade history</h3>
+        {settled.length > 0 && (
+          <span className="num text-xs text-text-2">
+            {wins} won · {settled.length - wins} lost · <span className={total >= 0 ? "text-up" : "text-down"}>{signed(total)}</span> total
+          </span>
+        )}
+      </div>
+      {rows.length === 0 ? (
+        <p className="mt-2 text-sm text-text-2">No condors yet. The first one opens in the last half hour of a market day.</p>
+      ) : (
+        <ul className="mt-2 divide-y divide-border text-sm">
+          {rows.map(({ t, open }) => (
+            <li key={`${t.date}-${t.expiry}`} className="py-2.5">
+              <div className="flex items-baseline gap-3">
+                <span className="min-w-0 flex-1 truncate">
+                  {fmtMonthDay(t.date)} → {fmtMonthDay(t.expiry)}
+                </span>
+                <span className={`num shrink-0 text-xs ${(t.level ?? 0) > 0 ? "font-semibold text-warn" : "text-text-2"}`}>
+                  L{(t.level ?? 0) + 1} · {t.contracts}×
+                </span>
+                <span className={`num w-20 shrink-0 text-right font-medium ${open ? "text-text-2" : (t.pnl ?? 0) >= 0 ? "text-up" : "text-down"}`}>
+                  {open ? "Open" : signed(t.pnl ?? 0)}
+                </span>
+              </div>
+              <div className="num mt-0.5 text-xs text-text-2">
+                {strikes(t)} · {usd0(t.credit * 100 * t.contracts)} credit · {name} {t.spot.toFixed(2)}
+                {open ? ` · settles ${fmtDate(t.expiry)} 1:00pm PT` : ` → ${t.close?.toFixed(2)}`}
+                {!open && t.equityAfter !== undefined && ` · account ${usd0(t.equityAfter)}`}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
