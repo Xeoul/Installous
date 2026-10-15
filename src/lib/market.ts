@@ -3,7 +3,9 @@ import YahooFinance from "yahoo-finance2";
 import { createCache } from "./cache";
 import { nyDate } from "./dates";
 import type { Chain } from "./condor-bot";
+import { nyClose } from "./condor-live";
 import type { IndexBar } from "./options";
+import { pmLegs } from "./pm-chain";
 
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
@@ -331,13 +333,15 @@ export async function getChain(rawTicker: string, from: string): Promise<Chain> 
   const o = r.options[0];
   const spot = num(r.quote?.regularMarketPrice);
   if (!o || spot === null) throw new Error(`No option chain for ${ticker}`);
-  const leg = (c: { strike: number; bid?: number; ask?: number }) => ({ strike: c.strike, bid: c.bid ?? 0, ask: c.ask ?? 0 });
+  const expiry = o.expirationDate.toISOString().slice(0, 10);
+  // Price everything as settled at the expiry day's 4:00pm close (see pm-chain.ts).
+  const years = Math.max(0, (nyClose(expiry).getTime() - Date.now()) / (365.25 * 86_400_000));
   return {
-    expiry: o.expirationDate.toISOString().slice(0, 10),
+    expiry,
     spot,
     marketOpen: r.quote?.marketState === "REGULAR",
-    puts: o.puts.map(leg),
-    calls: o.calls.map(leg),
+    puts: pmLegs("put", o.puts, spot, years),
+    calls: pmLegs("call", o.calls, spot, years),
   };
 }
 
