@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Change } from "@/components/Change";
-import { OrderTicket, PositionCard } from "@/components/CondorLive";
+import { OrderTicket, PositionCard, TradeHistory } from "@/components/CondorLive";
 import { LineChart } from "@/components/LineChart";
 import { RollingNumber } from "@/components/RollingNumber";
 import { getCondorBot, getFund } from "@/lib/client-data";
@@ -215,6 +215,7 @@ function BotPanel({ bot, prices, onUpdate }: { bot: BotState | null; prices: Liv
   const positions = [bot?.settling, bot?.open].filter((t): t is BotTrade => !!t);
   const quote = bot && positions.length ? botQuoteTicker(bot.rules) : null;
   const tail = useLiveTail(quote, 15_000);
+  const [showHistory, setShowHistory] = useState(false);
   if (!bot) return <Headline label="Condor bot · paper money" value={null} change={null} />;
   const name = botName(bot.rules);
   const livePrice = quote ? prices[quote] : undefined;
@@ -264,6 +265,24 @@ function BotPanel({ bot, prices, onUpdate }: { bot: BotState | null; prices: Liv
           },
         ]}
       />
+      <button
+        type="button"
+        onClick={() => setShowHistory((v) => !v)}
+        aria-expanded={showHistory}
+        aria-controls="home-condor-history"
+        className="mt-3 flex w-full items-center justify-between rounded-xl bg-surface-2 px-3 py-2.5 text-sm font-medium transition hover:ring-1 hover:ring-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      >
+        <span>
+          Trade history <span className="font-normal text-muted">· {bot.trades.length} settled</span>
+        </span>
+        <span className="flex items-center gap-1 text-accent">
+          {showHistory ? "Hide" : "View"}
+          <svg viewBox="0 0 16 16" className={`h-3.5 w-3.5 transition-transform ${showHistory ? "rotate-180" : ""}`} aria-hidden>
+            <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+      </button>
+      {showHistory && <TradeHistory id="home-condor-history" bot={bot} positions={positions} name={name} />}
       <More href="/options">Options Lab</More>
     </>
   );
