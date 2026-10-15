@@ -10,7 +10,7 @@ import { usd0 } from "@/lib/format";
 import type { TailPoint } from "@/lib/live/useLivePrice";
 
 const signed2 = (v: number) => `${v >= 0 ? "+" : "−"}$${Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-const nyTime = (d: Date) => d.toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" });
+const ptTime = (d: Date) => d.toLocaleTimeString("en-US", { timeZone: "America/Los_Angeles", hour: "numeric", minute: "2-digit" });
 
 /** The current time, ticking every `ms` while `on`. */
 function useNow(ms: number, on = true): Date {
@@ -78,9 +78,9 @@ export function OrderTicket({ bot, onUpdate, name }: { bot: BotState; onUpdate: 
           {status.phase === "skipped" && "No order today"}
         </div>
         <span className="num text-xs text-text-2">
-          {status.phase === "waiting" && `${nyTime(status.at)} ET · in ${countdown(status.at.getTime() - now.getTime())}`}
+          {status.phase === "waiting" && `${ptTime(status.at)} PT · in ${countdown(status.at.getTime() - now.getTime())}`}
           {status.phase === "working" && "Waiting for the fill…"}
-          {status.phase === "filled" && `${nyTime(new Date(status.trade.openedAt))} ET`}
+          {status.phase === "filled" && `${ptTime(new Date(status.trade.openedAt))} PT`}
         </span>
       </div>
 
@@ -189,7 +189,7 @@ export function PositionCard({ trade, rules, spot, live, tail, name }: { trade: 
       </table>
       <p className="mt-2 text-[11px] text-muted">
         Leg prices are estimates from {name}&apos;s live price at the volatility the bot&apos;s fill implied ({(vol * 100).toFixed(0)}%); the
-        condor settles at the 4:00pm close on {fmtWeekday(trade.expiry)}.
+        condor settles at the 1:00pm PT close on {fmtWeekday(trade.expiry)}.
       </p>
     </div>
   );

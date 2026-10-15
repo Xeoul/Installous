@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import { OrderTicket, PositionCard } from "@/components/CondorLive";
 import { Change } from "@/components/Change";
 import { FundChart } from "@/components/FundChart";
+import { RollingNumber } from "@/components/RollingNumber";
 import { getCondorBot } from "@/lib/client-data";
 import { botName, botQuoteTicker, type BotState, type BotTrade } from "@/lib/condor-bot";
 import { fmtWeekday as fmtDate, nyDate } from "@/lib/dates";
 import { signedUsd0 as signed, usd0 } from "@/lib/format";
 import { MarketHours } from "@/lib/live/pricing";
+import { liveBot } from "@/lib/live/valuations";
 import { useLivePrice, useLiveTail } from "@/lib/live/useLivePrice";
 import { upcomingNews } from "@/lib/news-days";
 
@@ -41,6 +43,8 @@ export function CondorBot() {
   const live = useLivePrice(ticker);
   const tail = useLiveTail(ticker, 15_000);
   const spot = live?.price ?? positions.at(-1)?.spot;
+  // The account as if the open condors settled at the index's live price, ticking with it.
+  const v = bot ? liveBot(bot, live?.price) : null;
   const skips = upcomingNews(nyDate(new Date()), 3);
 
   return (
@@ -69,12 +73,23 @@ export function CondorBot() {
               <PositionCard key={t.date} trade={t} rules={r} name={name} spot={spot} live={live?.marketHours === MarketHours.Regular} tail={tail} />
             ))}
           <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
-            <Tile label="Account" value={usd0(bot.equity)} sub={<Change value={(bot.equity / r.startCash - 1) * 100} />} />
             <Tile
-              label={bot.open ? "Open condor" : "Last condor"}
+              label={v?.live ? "Account · live" : "Account"}
+              value={usd0(v?.equity ?? bot.equity)}
+              sub={
+                <span className="flex flex-wrap items-center gap-x-1.5">
+                  <Change value={((v?.equity ?? bot.equity) / r.startCash - 1) * 100} />
+                  {v?.live && <span className="text-text-2">if settled now</span>}
+                </span>
+              }
+            />
+            <Tile
+              label={bot.open ? (v?.live ? "Open condor · now" : "Open condor") : "Last condor"}
               value={
                 bot.open
-                  ? `${bot.open.contracts}× for ${usd0(bot.open.credit * 100 * bot.open.contracts)}`
+                  ? v?.live
+                    ? signed(v.unsettled)
+                    : `${bot.open.contracts}× for ${usd0(bot.open.credit * 100 * bot.open.contracts)}`
                   : bot.trades[0]
                     ? signed(bot.trades[0].pnl!)
                     : "None yet"
@@ -82,7 +97,8 @@ export function CondorBot() {
               sub={
                 bot.open ? (
                   <span className="text-text-2">
-                    {strikes(bot.open)} · settles {fmtDate(bot.open.expiry)} at 4:00pm ET
+                    {v?.live && `${bot.open.contracts}× for ${usd0(bot.open.credit * 100 * bot.open.contracts)} · `}
+                    {strikes(bot.open)} · settles {fmtDate(bot.open.expiry)} at 1:00pm PT
                   </span>
                 ) : bot.trades[0] ? (
                   <span className="text-text-2">
@@ -170,7 +186,7 @@ export function CondorBot() {
               {r.evenMoney ? `, short strikes placed so it collects about $${(r.width * 50).toFixed(0)}` : ""}. It skips a day if the
               condor pays under ${((r.minCredit ?? 0) * 100).toFixed(0)}, or if a Fed decision, CPI or jobs report lands while it would be
               open. Fills use the quoted mid less ${r.slippage.toFixed(2)} per spread (Yahoo Finance quotes, which can be delayed), and
-              each condor settles at the 4:00pm close. Starts with {usd0(r.startCash)}. Paper money only.
+              each condor settles at the 1:00pm PT close. Starts with {usd0(r.startCash)}. Paper money only.
             </p>
           </details>
         </>
@@ -183,7 +199,9 @@ function Tile({ label, value, sub }: { label: string; value: string; sub: React.
   return (
     <div className="min-w-0 rounded-xl bg-surface-2 p-3">
       <div className="text-xs text-muted">{label}</div>
-      <div className="num mt-1 truncate text-lg font-semibold sm:text-xl">{value}</div>
+      <div className="num mt-1 truncate text-lg font-semibold sm:text-xl">
+        <RollingNumber value={value} />
+      </div>
       <div className="mt-0.5 text-xs">{sub}</div>
     </div>
   );
