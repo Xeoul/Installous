@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { OrderTicket, PositionCard, TradeHistory } from "@/components/CondorLive";
+import { OrderTicket, PositionCard, TradeHistory, useNow } from "@/components/CondorLive";
 import { Change } from "@/components/Change";
 import { FundChart } from "@/components/FundChart";
 import { RollingNumber } from "@/components/RollingNumber";
@@ -44,8 +44,9 @@ export function CondorBot() {
   const live = useLivePrice(ticker);
   const tail = useLiveTail(ticker, 15_000);
   const spot = live?.price ?? positions.at(-1)?.spot;
-  // The account as if the open condors settled at the index's live price, ticking with it.
-  const v = bot ? liveBot(bot, live?.price) : null;
+  // The account with the open condors marked live (bought back now), like the position card.
+  const now = useNow(5000, live?.marketHours === MarketHours.Regular);
+  const v = bot ? liveBot(bot, live?.price, now) : null;
   const skips = upcomingNews(nyDate(new Date()), 3);
 
   return (
@@ -80,7 +81,7 @@ export function CondorBot() {
               sub={
                 <span className="flex flex-wrap items-center gap-x-1.5">
                   <Change value={((v?.equity ?? bot.equity) / r.startCash - 1) * 100} />
-                  {v?.live && <span className="text-text-2">if settled now</span>}
+                  {v?.live && <span className="text-text-2">if closed now</span>}
                 </span>
               }
             />

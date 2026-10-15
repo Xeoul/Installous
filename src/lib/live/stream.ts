@@ -9,6 +9,16 @@ import { decodePricing, type PriceTick } from "./pricing";
 const STREAM_URL = "wss://streamer.finance.yahoo.com/";
 type Listener = (tick: PriceTick) => void;
 
+// Symbols the feed streams under another name: Yahoo's charts call the S&P 500
+// index ^GSPC, but its live feed only sends ^SPX (subscribing to ^GSPC gets nothing).
+const FEED_SYMBOL: Record<string, string> = { "^GSPC": "^SPX" };
+
+/** The symbol to subscribe to on the feed for a ticker. */
+export const feedSymbol = (ticker: string) => {
+  const t = ticker.toUpperCase();
+  return FEED_SYMBOL[t] ?? t;
+};
+
 export class PriceStream {
   constructor(private url = STREAM_URL) {}
 
@@ -21,7 +31,7 @@ export class PriceStream {
 
   /** Watch a ticker; returns a function that stops watching. */
   watch(ticker: string, fn: Listener): () => void {
-    const t = ticker.toUpperCase();
+    const t = feedSymbol(ticker);
     let set = this.listeners.get(t);
     const isNew = !set;
     if (!set) {
