@@ -11,7 +11,7 @@
       "shares": 9.386390796766449,
       "costBasis": 1065.3722199,
       "openedAt": "2026-09-29",
-      "lastPrice": 915.485
+      "lastPrice": 910.8801
     },
     {
       "ticker": "NVDA",
@@ -19,7 +19,7 @@
       "shares": 43.87621816835217,
       "costBasis": 227.9139,
       "openedAt": "2026-09-29",
-      "lastPrice": 216.94
+      "lastPrice": 216.87
     },
     {
       "ticker": "CVX",
@@ -27,7 +27,7 @@
       "shares": 49.01192810646116,
       "costBasis": 204.03196499999999,
       "openedAt": "2026-09-29",
-      "lastPrice": 220.98
+      "lastPrice": 220.31
     },
     {
       "ticker": "MSFT",
@@ -35,7 +35,7 @@
       "shares": 19.60227205622904,
       "costBasis": 510.14494499999995,
       "openedAt": "2026-09-29",
-      "lastPrice": 538.64
+      "lastPrice": 539.75
     },
     {
       "ticker": "META",
@@ -43,7 +43,7 @@
       "shares": 13.606047507147597,
       "costBasis": 734.9673,
       "openedAt": "2026-09-29",
-      "lastPrice": 732.965
+      "lastPrice": 734.505
     },
     {
       "ticker": "CRM",
@@ -51,7 +51,7 @@
       "shares": 44.31489280964165,
       "costBasis": 225.6577725,
       "openedAt": "2026-09-29",
-      "lastPrice": 246.09
+      "lastPrice": 245.385
     },
     {
       "ticker": "TXN",
@@ -59,7 +59,7 @@
       "shares": 35.47220250115565,
       "costBasis": 281.91088499999995,
       "openedAt": "2026-09-29",
-      "lastPrice": 277.71
+      "lastPrice": 276.235
     },
     {
       "ticker": "XOM",
@@ -67,7 +67,7 @@
       "shares": 61.95569501782505,
       "costBasis": 161.40566249999998,
       "openedAt": "2026-09-29",
-      "lastPrice": 174.65
+      "lastPrice": 174.915
     },
     {
       "ticker": "GOOGL",
@@ -75,7 +75,7 @@
       "shares": 29.270514243566417,
       "costBasis": 341.640735,
       "openedAt": "2026-09-29",
-      "lastPrice": 350.125
+      "lastPrice": 348.08
     },
     {
       "ticker": "AVGO",
@@ -83,7 +83,7 @@
       "shares": 28.15335051194475,
       "costBasis": 355.19750999999997,
       "openedAt": "2026-09-29",
-      "lastPrice": 341.375
+      "lastPrice": 338.7303
     }
   ],
   "lastRebalance": "2026-10-13",
@@ -140,8 +140,8 @@
     },
     {
       "date": "2026-10-15",
-      "equity": 100909.78,
-      "benchmark": 100878.15
+      "equity": 100671.89,
+      "benchmark": 100681.84
     }
   ],
   "trades": [
@@ -246,5 +246,5 @@
       "reason": "New pick: #10 with score 74 (Strong Buy); strongest on growth 100, sentiment 100"
     }
   ],
-  "updatedAt": "2026-10-15T15:18:09.591Z"
+  "updatedAt": "2026-10-15T16:20:02.021Z"
 }
