@@ -144,14 +144,6 @@ export function CondorBot() {
 
           {showHistory && <TradeHistory id="condor-history" bot={bot} positions={positions} name={name} />}
 
-          {bot.settling?.rolled && (
-            <p className="mt-2 text-xs text-text-2">
-              The condor expiring {fmtDate(bot.settling.expiry)} looked like {signed(bot.settling.rolled.pnl)} with {name} at{" "}
-              {bot.settling.rolled.spot.toFixed(2)} near the close, so the next one opened at level {(bot.open?.level ?? level) + 1}. It
-              settles at the official close.
-            </p>
-          )}
-
           {bot.note && !bot.open && <p className="mt-3 text-sm text-text-2">{bot.note}</p>}
 
           {r.skipNews !== false && skips.length > 0 && (

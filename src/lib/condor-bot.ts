@@ -328,7 +328,7 @@ export function stepBot(prev: BotState | null, input: BotInput): { state: BotSta
     const last = state.history.at(-1);
     if (last?.date === t.expiry) last.equity = state.equity;
     else state.history.push({ date: t.expiry, equity: state.equity });
-    events.push(`Settled ${t.expiry}: SPY closed ${close}, ${pnl >= 0 ? "kept" : "lost"} $${Math.abs(pnl).toFixed(2)} on ${t.contracts}×`);
+    events.push(`Settled ${t.expiry}: ${botName(rules)} closed ${close}, ${pnl >= 0 ? "kept" : "lost"} $${Math.abs(pnl).toFixed(2)} on ${t.contracts}×`);
   }
 
   // 2. Right after the close, once today's condor has settled, open the next one.
@@ -345,7 +345,6 @@ export function stepBot(prev: BotState | null, input: BotInput): { state: BotSta
   if (inWindow && !openedToday && !state.bust && exchangeOpen && unsettled) {
     state.note = "Waiting for today's close to settle the condor.";
   } else if (inWindow && !openedToday && !state.bust && exchangeOpen) {
-    const projected = 0;
 
     const news = rules.skipNews ? newsOn(chain.expiry) : [];
     const rightExpiry = rules.expiryDays === 0 ? chain.expiry === today : chain.expiry > today;
@@ -366,8 +365,8 @@ export function stepBot(prev: BotState | null, input: BotInput): { state: BotSta
       } else {
         const wanted = rules.levels[state.level] ?? rules.levels[0];
         const margin = maxLossPerShare(condor) * MULTIPLIER + fees(rules, 1);
-        // Cash after today's condor settles, roughly.
-        const affordable = margin > 0 ? Math.floor((state.equity + projected) / margin) : 0;
+        // Today's condor has already settled into the account.
+        const affordable = margin > 0 ? Math.floor(state.equity / margin) : 0;
         if (affordable < 1) {
           state.bust = today;
           state.note = "Bust: the account can't cover one more condor.";
