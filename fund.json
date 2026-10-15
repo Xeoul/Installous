@@ -27,7 +27,7 @@
       "shares": 49.01192810646116,
       "costBasis": 204.03196499999999,
       "openedAt": "2026-09-29",
-      "lastPrice": 219.39
+      "lastPrice": 219.395
     },
     {
       "ticker": "MSFT",
@@ -140,7 +140,7 @@
     },
     {
       "date": "2026-10-15",
-      "equity": 101192.98,
+      "equity": 101193.22,
       "benchmark": 101002.47
     }
   ],
@@ -246,5 +246,5 @@
       "reason": "New pick: #10 with score 74 (Strong Buy); strongest on growth 100, sentiment 100"
     }
   ],
-  "updatedAt": "2026-10-15T20:11:16.660Z"
+  "updatedAt": "2026-10-15T20:12:25.790Z"
 }
