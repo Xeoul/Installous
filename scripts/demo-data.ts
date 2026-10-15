@@ -110,6 +110,13 @@ async function main() {
     Object.fromEntries(done.filter((d) => d.spark).map((d) => [d.scored.fundamentals.ticker, d.spark])),
   );
 
+  // The S&P 500's latest session in 5-minute bars, for the condor bot's live index chart.
+  try {
+    await write("spx-1d.json", await withRetry("SPX 1D", () => getHistory("^GSPC", "1d")));
+  } catch (err) {
+    console.warn(`SPX 1D: ${(err as Error).message}`);
+  }
+
   await write("meta.json", { generatedAt: new Date().toISOString(), tickers: ok.length });
   console.log(`Snapshot of ${ok.length} tickers written to public/demo-data in ${((Date.now() - started) / 1000).toFixed(0)}s`);
   if (failed.length) console.warn(`Failed: ${failed.join(", ")}`);

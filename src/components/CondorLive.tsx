@@ -2,10 +2,11 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { RollingNumber } from "@/components/RollingNumber";
-import { refreshCondorBot } from "@/lib/client-data";
+import type { ChartData } from "@/lib/chart";
+import { getSpxDay, refreshCondorBot } from "@/lib/client-data";
 import type { BotRules, BotState, BotTrade } from "@/lib/condor-bot";
 import { condorValue, impliedVol, markCondor, nyClose, orderPhase, payoff, yearsLeft } from "@/lib/condor-live";
-import { fmtMonthDay, fmtWeekday } from "@/lib/dates";
+import { fmtMonthDay, fmtWeekday, nyDate } from "@/lib/dates";
 import { signedUsd0, usd0 } from "@/lib/format";
 import type { TailPoint } from "@/lib/live/useLivePrice";
 
@@ -153,7 +154,7 @@ export function PositionCard({ trade, rules, spot, live, tail, name }: { trade: 
             {Math.abs(mark.pctOfMax).toFixed(1)}% of max profit
           </div>
         </div>
-        <PnlSpark trade={trade} rules={rules} vol={vol} tail={tail} />
+        <SpxDayChart trade={trade} tail={tail} spot={spot} name={name} />
       </div>
 
       <dl className="num mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
@@ -204,20 +205,66 @@ function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-/** Profit or loss through today's session, from the index's streamed ticks. */
-function PnlSpark({ trade, rules, vol, tail }: { trade: BotTrade; rules: BotRules; vol: number; tail: TailPoint[] }) {
-  const pts = tail.map((p) => markCondor(trade, p.close, new Date(p.t), vol, rules.feePerLeg).pnl);
-  if (pts.length < 2) return <div className="w-40 text-[11px] text-muted sm:text-right">Live P/L chart starts with the next tick</div>;
-  const lo = Math.min(0, ...pts);
-  const hi = Math.max(0, ...pts);
-  const y = (v: number) => 46 - ((v - lo) / (hi - lo || 1)) * 44;
-  const line = pts.map((v, i) => `${(i / (pts.length - 1)) * 160},${y(v).toFixed(1)}`).join(" ");
-  const color = pts.at(-1)! >= 0 ? "var(--up)" : "var(--down)";
+/** Today's S&P 500 session, refreshed every few minutes (live ticks fill in between). */
+function useSpxDay(): ChartData | null {
+  const [day, setDay] = useState<ChartData | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () => getSpxDay().then((d) => alive && setDay(d)).catch(() => {});
+    load();
+    const id = setInterval(load, 5 * 60_000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
+  return day;
+}
+
+/** The index through today's session: published 5-minute bars, then live ticks, with the condor's profit zone shaded. */
+function SpxDayChart({ trade, tail, spot, name }: { trade: BotTrade; tail: TailPoint[]; spot: number; name: string }) {
+  const day = useSpxDay();
+  const now = useNow(60_000);
+  const W = 224;
+  const H = 72;
+  // The session on the New York clock: today's, or the one the bars cover.
+  const latest = Math.max(tail.at(-1)?.t ?? 0, day?.points.at(-1)?.t ?? 0) || now.getTime();
+  const end = nyClose(nyDate(new Date(latest))).getTime();
+  const start = end - 6.5 * 3_600_000;
+  const pts = [
+    ...(day?.points ?? []).filter((p) => p.t >= start && p.t <= end),
+    ...tail.filter((p) => p.t >= start && p.t <= end && p.t > (day?.points.at(-1)?.t ?? 0)),
+  ];
+  if (pts.length < 2) return <div className="w-40 text-[11px] text-muted sm:text-right">{name} chart loads with the next update</div>;
+  const closes = pts.map((p) => p.close);
+  const lo = Math.min(...closes, trade.putShort) - 4;
+  const hi = Math.max(...closes, trade.callShort) + 4;
+  const x = (t: number) => ((t - start) / (end - start)) * (W - 30);
+  const y = (v: number) => 4 + ((hi - v) / (hi - lo)) * (H - 8);
+  const line = pts.map((p) => `${x(p.t).toFixed(1)},${y(p.close).toFixed(1)}`).join(" ");
+  const last = pts.at(-1)!;
+  const inside = spot > trade.putShort && spot < trade.callShort;
   return (
-    <svg viewBox="0 0 160 48" className="h-12 w-40" role="img" aria-label="Profit or loss since this page opened">
-      <line x1="0" x2="160" y1={y(0)} y2={y(0)} stroke="var(--border)" strokeDasharray="3 3" />
-      <polyline points={line} fill="none" stroke={color} strokeWidth="1.8" strokeLinejoin="round" />
-    </svg>
+    <div className="w-full sm:w-56">
+      <div className="mb-0.5 flex items-center justify-between text-[11px] text-muted">
+        <span>{name} today</span>
+        <span className={inside ? "text-up" : "text-down"}>{inside ? "inside the shorts" : "outside a short strike"}</span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="block h-[72px] w-full" role="img" aria-label={`${name} today, now ${spot.toFixed(2)}, short strikes ${trade.putShort} and ${trade.callShort}`}>
+        {/* The profit zone between the short strikes. */}
+        <rect x="0" y={y(trade.callShort)} width={W - 30} height={y(trade.putShort) - y(trade.callShort)} fill="var(--up)" opacity="0.1" />
+        {[trade.callShort, trade.putShort].map((k) => (
+          <g key={k}>
+            <line x1="0" x2={W - 30} y1={y(k)} y2={y(k)} stroke="var(--up)" strokeDasharray="3 3" opacity="0.7" />
+            <text x={W - 27} y={y(k) + 3} fontSize="8" fill="var(--muted)" className="num">
+              {k}
+            </text>
+          </g>
+        ))}
+        <polyline points={line} fill="none" stroke="var(--accent)" strokeWidth="1.6" strokeLinejoin="round" />
+        <circle cx={x(last.t)} cy={y(last.close)} r="2.5" fill="var(--accent)" />
+      </svg>
+    </div>
   );
 }
 
