@@ -5,8 +5,8 @@ import { RollingNumber } from "@/components/RollingNumber";
 import { refreshCondorBot } from "@/lib/client-data";
 import type { BotRules, BotState, BotTrade } from "@/lib/condor-bot";
 import { condorValue, impliedVol, markCondor, nyClose, orderPhase, payoff, yearsLeft } from "@/lib/condor-live";
-import { fmtWeekday } from "@/lib/dates";
-import { usd0 } from "@/lib/format";
+import { fmtMonthDay, fmtWeekday } from "@/lib/dates";
+import { signedUsd0, usd0 } from "@/lib/format";
 import type { TailPoint } from "@/lib/live/useLivePrice";
 
 const signed2 = (v: number) => `${v >= 0 ? "+" : "−"}$${Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -273,4 +273,52 @@ function strikeLabels(t: BotTrade, x: (s: number) => number): number[] {
     t.callShort,
     ...(room(t.callShort, t.callLong) ? [t.callLong] : []),
   ];
+}
+
+const strikes = (t: BotTrade) => `${t.putLong}/${t.putShort}p · ${t.callShort}/${t.callLong}c`;
+
+/** Every condor the bot has traded, newest first: the open ones, then each settled one with its result. */
+export function TradeHistory({ id, bot, positions, name }: { id: string; bot: BotState; positions: BotTrade[]; name: string }) {
+  const settled = bot.trades;
+  const total = settled.reduce((sum, t) => sum + (t.pnl ?? 0), 0);
+  const wins = settled.filter((t) => (t.pnl ?? 0) >= 0).length;
+  const rows = [...[...positions].reverse().map((t) => ({ t, open: true })), ...settled.map((t) => ({ t, open: false }))];
+  return (
+    <div id={id} className="mt-3 rounded-xl border border-border p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-sm font-semibold">Trade history</h3>
+        {settled.length > 0 && (
+          <span className="num text-xs text-text-2">
+            {wins} won · {settled.length - wins} lost · <span className={total >= 0 ? "text-up" : "text-down"}>{signedUsd0(total)}</span> total
+          </span>
+        )}
+      </div>
+      {rows.length === 0 ? (
+        <p className="mt-2 text-sm text-text-2">No condors yet. The first one opens in the last half hour of a market day.</p>
+      ) : (
+        <ul className="mt-2 divide-y divide-border text-sm">
+          {rows.map(({ t, open }) => (
+            <li key={`${t.date}-${t.expiry}`} className="py-2.5">
+              <div className="flex items-baseline gap-3">
+                <span className="min-w-0 flex-1 truncate">
+                  {fmtMonthDay(t.date)} → {fmtMonthDay(t.expiry)}
+                </span>
+                <span className={`num shrink-0 text-xs ${(t.level ?? 0) > 0 ? "font-semibold text-warn" : "text-text-2"}`}>
+                  L{(t.level ?? 0) + 1} · {t.contracts}×
+                </span>
+                <span className={`num w-20 shrink-0 text-right font-medium ${open ? "text-text-2" : (t.pnl ?? 0) >= 0 ? "text-up" : "text-down"}`}>
+                  {open ? "Open" : signedUsd0(t.pnl ?? 0)}
+                </span>
+              </div>
+              <div className="num mt-0.5 text-xs text-text-2">
+                {strikes(t)} · {usd0(t.credit * 100 * t.contracts)} credit · {name} {t.spot.toFixed(2)}
+                {open ? ` · settles ${fmtWeekday(t.expiry)} 1:00pm PT` : ` → ${t.close?.toFixed(2)}`}
+                {!open && t.equityAfter !== undefined && ` · account ${usd0(t.equityAfter)}`}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }

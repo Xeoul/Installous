@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { OrderTicket, PositionCard } from "@/components/CondorLive";
+import { OrderTicket, PositionCard, TradeHistory } from "@/components/CondorLive";
 import { Change } from "@/components/Change";
 import { FundChart } from "@/components/FundChart";
 import { RollingNumber } from "@/components/RollingNumber";
 import { getCondorBot } from "@/lib/client-data";
 import { botName, botQuoteTicker, type BotState, type BotTrade } from "@/lib/condor-bot";
-import { fmtMonthDay, fmtWeekday as fmtDate, nyDate } from "@/lib/dates";
+import { fmtWeekday as fmtDate, nyDate } from "@/lib/dates";
 import { signedUsd0 as signed, usd0 } from "@/lib/format";
 import { MarketHours } from "@/lib/live/pricing";
 import { liveBot } from "@/lib/live/valuations";
@@ -227,51 +227,5 @@ function Tile({ label, value, sub, onClick, expanded, controls }: TileProps) {
     >
       {body}
     </button>
-  );
-}
-
-/** Every condor the bot has traded, newest first: the open ones, then each settled one with its result. */
-function TradeHistory({ id, bot, positions, name }: { id: string; bot: BotState; positions: BotTrade[]; name: string }) {
-  const settled = bot.trades;
-  const total = settled.reduce((sum, t) => sum + (t.pnl ?? 0), 0);
-  const wins = settled.filter((t) => (t.pnl ?? 0) >= 0).length;
-  const rows = [...[...positions].reverse().map((t) => ({ t, open: true })), ...settled.map((t) => ({ t, open: false }))];
-  return (
-    <div id={id} className="mt-3 rounded-xl border border-border p-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold">Trade history</h3>
-        {settled.length > 0 && (
-          <span className="num text-xs text-text-2">
-            {wins} won · {settled.length - wins} lost · <span className={total >= 0 ? "text-up" : "text-down"}>{signed(total)}</span> total
-          </span>
-        )}
-      </div>
-      {rows.length === 0 ? (
-        <p className="mt-2 text-sm text-text-2">No condors yet. The first one opens in the last half hour of a market day.</p>
-      ) : (
-        <ul className="mt-2 divide-y divide-border text-sm">
-          {rows.map(({ t, open }) => (
-            <li key={`${t.date}-${t.expiry}`} className="py-2.5">
-              <div className="flex items-baseline gap-3">
-                <span className="min-w-0 flex-1 truncate">
-                  {fmtMonthDay(t.date)} → {fmtMonthDay(t.expiry)}
-                </span>
-                <span className={`num shrink-0 text-xs ${(t.level ?? 0) > 0 ? "font-semibold text-warn" : "text-text-2"}`}>
-                  L{(t.level ?? 0) + 1} · {t.contracts}×
-                </span>
-                <span className={`num w-20 shrink-0 text-right font-medium ${open ? "text-text-2" : (t.pnl ?? 0) >= 0 ? "text-up" : "text-down"}`}>
-                  {open ? "Open" : signed(t.pnl ?? 0)}
-                </span>
-              </div>
-              <div className="num mt-0.5 text-xs text-text-2">
-                {strikes(t)} · {usd0(t.credit * 100 * t.contracts)} credit · {name} {t.spot.toFixed(2)}
-                {open ? ` · settles ${fmtDate(t.expiry)} 1:00pm PT` : ` → ${t.close?.toFixed(2)}`}
-                {!open && t.equityAfter !== undefined && ` · account ${usd0(t.equityAfter)}`}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
   );
 }

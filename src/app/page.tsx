@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Card } from "@/components/Card";
 import { Change } from "@/components/Change";
 import { RollingNumber } from "@/components/RollingNumber";
@@ -17,6 +17,7 @@ import type { Quote } from "@/lib/market";
 import type { Pick, PortfolioSnapshot } from "@/lib/portfolio";
 
 export default function Dashboard() {
+  const part = useSyncExternalStore(noSubscribe, greeting, () => null);
   const [portfolio, setPortfolio] = useState<PortfolioSnapshot | null>(null);
   const [watchlist, setWatchlist] = useState<Quote[] | null>(null);
   const [picks, setPicks] = useState<Pick[] | null>(null);
@@ -40,7 +41,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Good {greeting()}</h1>
+          <h1 className="text-2xl font-semibold">{part ? `Good ${part}` : "\u00a0"}</h1>
           <p className="text-text-2">The AI Fund, the options bot and today&apos;s highest-ranked ideas.</p>
         </div>
         <Link href="/advisor" className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white">
@@ -135,6 +136,9 @@ function greeting() {
   const h = new Date().getHours();
   return h < 12 ? "morning" : h < 18 ? "afternoon" : "evening";
 }
+// The static page is built ahead of time, so the greeting is read in the
+// browser after hydration (the build's hour would mismatch the viewer's).
+const noSubscribe = () => () => {};
 
 function Skeleton({ rows }: { rows: number }) {
   return (
