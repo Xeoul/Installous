@@ -126,7 +126,8 @@ export function PositionCard({ trade, rules, spot, live, tail, name }: { trade: 
   const credit = trade.credit * 100 * trade.contracts;
   const maxLoss = (Math.max(trade.putShort - trade.putLong, trade.callLong - trade.callShort) - trade.credit) * 100 * trade.contracts;
   const close = nyClose(trade.expiry);
-  const expiresToday = close.getTime() - now.getTime() < 24 * 3_600_000;
+  // Today on the New York calendar, not "within 24 hours" (a condor opened after the close expires tomorrow).
+  const expiresToday = trade.expiry === nyDate(now);
   const up = mark.pnl >= 0;
 
   return (
@@ -136,7 +137,11 @@ export function PositionCard({ trade, rules, spot, live, tail, name }: { trade: 
           {name} Iron Condor · {trade.contracts}× · L{trade.level + 1}
         </div>
         <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${expiresToday ? "bg-warn/15 text-warn" : "bg-up/15 text-up"}`}>
-          {close.getTime() <= now.getTime() ? "Settling" : expiresToday ? `Expires today · ${countdown(close.getTime() - now.getTime())}` : `Expires ${fmtWeekday(trade.expiry)}`}
+          {close.getTime() <= now.getTime()
+            ? "Settling"
+            : expiresToday
+              ? `Expires today · ${countdown(close.getTime() - now.getTime())}`
+              : `Expires ${fmtWeekday(trade.expiry)} · ${countdown(close.getTime() - now.getTime())}`}
         </span>
       </div>
 
