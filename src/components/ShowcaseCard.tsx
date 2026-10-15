@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Change } from "@/components/Change";
-import { OrderTicket, PositionCard, TradeHistory } from "@/components/CondorLive";
+import { OrderTicket, PositionCard, TradeHistory, useNow } from "@/components/CondorLive";
 import { LineChart } from "@/components/LineChart";
 import { RollingNumber } from "@/components/RollingNumber";
 import { getCondorBot, getFund } from "@/lib/client-data";
@@ -216,11 +216,12 @@ function BotPanel({ bot, prices, onUpdate }: { bot: BotState | null; prices: Liv
   const quote = bot && positions.length ? botQuoteTicker(bot.rules) : null;
   const tail = useLiveTail(quote, 15_000);
   const [showHistory, setShowHistory] = useState(false);
+  const now = useNow(5000, quote !== null && prices[quote] !== undefined);
   if (!bot) return <Headline label="Condor bot · paper money" value={null} change={null} />;
   const name = botName(bot.rules);
   const livePrice = quote ? prices[quote] : undefined;
-  // With a condor open, show the account as if it settled at the index's live price.
-  const v = liveBot(bot, prices[botQuoteTicker(bot.rules)]);
+  // With a condor open, mark it live (bought back now), like the position card below.
+  const v = liveBot(bot, prices[botQuoteTicker(bot.rules)], now);
   const levels = bot.rules.levels ?? [1, 3, 6];
   const level = bot.open?.level ?? bot.level ?? 0;
   const wins = bot.trades.filter((t) => (t.pnl ?? 0) >= 0).length;
@@ -231,7 +232,7 @@ function BotPanel({ bot, prices, onUpdate }: { bot: BotState | null; prices: Liv
         label={`${name} condor bot · paper money`}
         value={v.equity}
         change={<Change value={(v.equity / bot.rules.startCash - 1) * 100} />}
-        sub={v.live ? `if settled now · open condor ${v.unsettled >= 0 ? "+" : "−"}${usd0(Math.abs(v.unsettled))}` : `since ${fmtMonthDay(bot.startDate)}`}
+        sub={v.live ? `if closed now · open condor ${v.unsettled >= 0 ? "+" : "−"}${usd0(Math.abs(v.unsettled))}` : `since ${fmtMonthDay(bot.startDate)}`}
         live={v.live}
       />
       <div className="mt-4">

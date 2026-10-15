@@ -13,7 +13,7 @@ const signed2 = (v: number) => `${v >= 0 ? "+" : "−"}$${Math.abs(v).toLocaleSt
 const ptTime = (d: Date) => d.toLocaleTimeString("en-US", { timeZone: "America/Los_Angeles", hour: "numeric", minute: "2-digit" });
 
 /** The current time, ticking every `ms` while `on`. */
-function useNow(ms: number, on = true): Date {
+export function useNow(ms: number, on = true): Date {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     if (!on) return;

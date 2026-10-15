@@ -67,3 +67,28 @@ describe("livePortfolio", () => {
     expect(v.gain).toBe(200);
   });
 });
+
+describe("liveBot marked live", () => {
+  const t: BotTrade = {
+    date: "2026-10-13", expiry: "2026-10-14", openedAt: "2026-10-13T19:27:00Z", spot: 500,
+    putLong: 492, putShort: 496, callShort: 504, callLong: 508, credit: 2, contracts: 1, level: 0, capped: false,
+  };
+  const bot = { ...newBotState(new Date()), open: t };
+
+  it("moves with the price while the condor has time left, unlike the settle value", () => {
+    const now = new Date("2026-10-14T15:00:00Z"); // 11am New York on expiry day
+    const a = liveBot(bot, 500, now).unsettled;
+    const b = liveBot(bot, 502, now).unsettled;
+    expect(a).not.toBe(b); // closer to the call short: worth less
+    expect(b).toBeLessThan(a);
+    // Settled, both prices sit between the shorts and pay the same.
+    expect(liveBot(bot, 500).unsettled).toBe(liveBot(bot, 502).unsettled);
+    // Before the close it's worth less than the full credit, which it only earns by holding.
+    expect(a).toBeLessThan(liveBot(bot, 500).unsettled);
+  });
+
+  it("matches the settle value at the close", () => {
+    const close = new Date("2026-10-14T20:00:00Z");
+    expect(liveBot(bot, 501, close).unsettled).toBeCloseTo(liveBot(bot, 501).unsettled, 1);
+  });
+});

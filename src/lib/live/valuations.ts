@@ -2,6 +2,7 @@
 // streamed prices, so their headline numbers tick like a stock price does.
 // Pure functions: the hook that feeds them prices lives in the components.
 import { pnlAt, type BotState } from "../condor-bot";
+import { impliedVol, markCondor } from "../condor-live";
 import type { FundView } from "../fund";
 import type { PortfolioSnapshot } from "../portfolio";
 
@@ -29,11 +30,16 @@ export function liveFund(fund: FundView, prices: LivePrices, spy?: number) {
   };
 }
 
-/** The bot's account if its open condors settled at `spy` now. */
-export function liveBot(bot: BotState, spy: number | undefined) {
+/**
+ * The bot's account with its open condors valued at the index price `spy`:
+ * bought back at `now` (their live mark, which moves with every tick), or
+ * without `now`, settled at that price.
+ */
+export function liveBot(bot: BotState, spy: number | undefined, now?: Date) {
   const open = [bot.settling, bot.open].filter((t) => t !== null && t !== undefined);
   if (spy === undefined || open.length === 0) return { live: false, equity: bot.equity, unsettled: 0 };
-  const unsettled = open.reduce((sum, t) => sum + pnlAt(t, spy, bot.rules.feePerLeg), 0);
+  const { feePerLeg, slippage } = bot.rules;
+  const unsettled = open.reduce((sum, t) => sum + (now ? markCondor(t, spy, now, impliedVol(t, slippage), feePerLeg).pnl : pnlAt(t, spy, feePerLeg)), 0);
   return { live: true, equity: round2(bot.equity + unsettled), unsettled: round2(unsettled) };
 }
 
