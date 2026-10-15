@@ -34,7 +34,7 @@ function countdown(ms: number): string {
 }
 
 /**
- * Today's order, like a brokerage order ticket: a countdown to 3:27pm, a
+ * Today's order, like a brokerage order ticket: a countdown to 4:06pm ET, a
  * working order while the bot places it (polling for the fill), then filled.
  */
 export function OrderTicket({ bot, onUpdate, name }: { bot: BotState; onUpdate: (b: BotState) => void; name: string }) {
@@ -354,7 +354,7 @@ export function TradeHistory({ id, bot, positions, name }: { id: string; bot: Bo
         )}
       </div>
       {rows.length === 0 ? (
-        <p className="mt-2 text-sm text-text-2">No condors yet. The first one opens in the last half hour of a market day.</p>
+        <p className="mt-2 text-sm text-text-2">No condors yet. The first one opens right after a market day&apos;s close.</p>
       ) : (
         <ul className="mt-2 divide-y divide-border text-sm">
           {rows.map(({ t, open }) => (

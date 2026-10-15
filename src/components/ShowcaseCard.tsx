@@ -246,7 +246,7 @@ function BotPanel({ bot, prices, onUpdate }: { bot: BotState | null; prices: Liv
       ) : (
         positions.length === 0 && (
           <p className="mt-3 rounded-xl bg-surface-2 px-3 py-2.5 text-sm text-text-2">
-            The chart starts once the first condor settles. The bot trades in the last half hour of each market day.
+            The chart starts once the first condor settles. The bot trades right after each market day&apos;s close.
           </p>
         )
       )}

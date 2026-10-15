@@ -3,9 +3,9 @@
 # when GitHub skips scheduled runs (it skipped all of them on 2026-10-13).
 # Any run that starts during the trading day steps the bot once right away
 # (settling anything due), then sleeps until each time in TIMES (New York
-# clock) and steps it again: a few times in the last half hour, where it
-# opens the next condor, and right after the official close to settle
-# (16:06, with later steps as retries if a quote is missing).
+# clock) and steps it again: right after the 4pm close it settles today's
+# condor and opens the next one from that real result (index options trade
+# until 4:15pm), with later steps as retries if a quote is missing.
 # The bot itself decides what to do at each step; extra steps are harmless.
 # Runs chain around the clock: jobs are limited to six hours, so each run
 # waits as long as it can and then starts a fresh run of this workflow to
@@ -20,7 +20,7 @@
 #   PUBLISH      when set, the command that republishes the site after new notifications
 set -uo pipefail
 
-TIMES=${TIMES:-"15:27 15:35 15:43 15:51 16:06 16:20 16:35 16:50"}
+TIMES=${TIMES:-"16:06 16:08 16:10 16:12 16:14 16:20 16:35 16:50"}
 deadline=$(($(date +%s) + ${BUDGET_MIN:-330} * 60))
 
 save() {

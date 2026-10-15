@@ -62,14 +62,15 @@ describe("condor live marks", () => {
 
 describe("order phase", () => {
   const bot = () => newBotState(at("2026-10-13T13:00:00Z"));
-  it("counts down to the 3:27pm order, works it in the window, then shows the fill", () => {
+  it("counts down to the 4:06pm order (right after the close), works it in the window, then shows the fill", () => {
     const before = orderPhase(bot(), at("2026-10-14T17:00:00Z"));
-    expect(before).toEqual({ phase: "waiting", at: at("2026-10-14T19:27:00Z") });
-    expect(orderPhase(bot(), at("2026-10-14T19:30:00Z")).phase).toBe("working");
-    expect(orderPhase({ ...bot(), open: trade }, at("2026-10-14T19:40:00Z"))).toMatchObject({ phase: "filled", trade });
+    expect(before).toEqual({ phase: "waiting", at: at("2026-10-14T20:06:00Z") });
+    expect(orderPhase(bot(), at("2026-10-14T19:30:00Z")).phase).toBe("waiting"); // 3:30pm: still before the close
+    expect(orderPhase(bot(), at("2026-10-14T20:08:00Z")).phase).toBe("working");
+    expect(orderPhase({ ...bot(), open: trade }, at("2026-10-14T20:10:00Z"))).toMatchObject({ phase: "filled", trade });
     expect(orderPhase(bot(), at("2026-10-14T21:00:00Z")).phase).toBe("closed");
-    expect(orderPhase(bot(), at("2026-10-17T19:30:00Z")).phase).toBe("closed"); // Saturday
-    const skipped = { ...bot(), note: "Skipped: FOMC on Wed, Oct 28, while the condor would be open.", updatedAt: "2026-10-27T19:27:00Z" };
-    expect(orderPhase(skipped, at("2026-10-27T19:40:00Z")).phase).toBe("skipped");
+    expect(orderPhase(bot(), at("2026-10-17T20:08:00Z")).phase).toBe("closed"); // Saturday
+    const skipped = { ...bot(), note: "Skipped: FOMC on Wed, Oct 28, while the condor would be open.", updatedAt: "2026-10-27T20:06:00Z" };
+    expect(orderPhase(skipped, at("2026-10-27T20:10:00Z")).phase).toBe("skipped");
   });
 });

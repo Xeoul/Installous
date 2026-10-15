@@ -57,6 +57,17 @@ export function marketStatus(now: Date): MarketStatus {
   return { open: false, next: nyMoment(d, OPEN) };
 }
 
+/**
+ * Whether SPX index options are trading at `now`: market days from the open
+ * to 15 minutes after the close (4:15pm, or 1:15pm on half days).
+ */
+export function optionsSessionOpen(now: Date): boolean {
+  const { date, minutes } = nyParts(now);
+  if (!isTradingDay(date)) return false;
+  const close = HALF_DAYS.has(date) ? HALF_CLOSE : CLOSE;
+  return minutes >= OPEN && minutes < close + 15;
+}
+
 /** "2h 14m", "45m", "under a minute". */
 export function untilLabel(ms: number): string {
   const mins = Math.ceil(ms / 60_000);

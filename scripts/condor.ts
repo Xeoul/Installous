@@ -39,6 +39,19 @@ async function main() {
       prev.open = null;
       prev.settling = null;
     }
+    // The bot used to open the next condor 33 minutes before the close, sized
+    // from a guess at the expiring one's result. It now waits for the close, so
+    // a condor opened on such a guess (and not yet settled against) is
+    // cancelled unfilled (paper money) and the expiring one goes back to
+    // settling normally; the next condor opens after the close from the real result.
+    if (prev.settling?.rolled && prev.open?.date === prev.settling.expiry) {
+      console.log(`Cancelling the condor opened ${prev.open.date} on a guess; it reopens after the close from the real result`);
+      const { rolled: _guess, ...expiring } = prev.settling;
+      prev.open = expiring;
+      prev.settling = null;
+      prev.level = expiring.level;
+      prev.streak = expiring.streak ?? 0;
+    }
     prev.rules = { ...BOT_RULES };
     if (prev.level >= BOT_RULES.levels.length) prev.level = 0;
   }

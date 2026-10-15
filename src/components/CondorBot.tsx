@@ -107,7 +107,7 @@ export function CondorBot() {
                     {fmtDate(bot.trades[0].expiry ?? bot.trades[0].date)} · {name} closed {bot.trades[0].close?.toFixed(2)}
                   </span>
                 ) : (
-                  <span className="text-text-2">Opens in the last half hour of a market day</span>
+                  <span className="text-text-2">Opens right after a market day&apos;s close</span>
                 )
               }
             />
@@ -175,7 +175,7 @@ export function CondorBot() {
           <details className="mt-4 text-xs text-muted">
             <summary className="cursor-pointer font-medium text-text-2">How the bot trades</summary>
             <p className="mt-2">
-              In the last half hour of each market day it checks whether the condor expiring today is a win or a loss, sets the next
+              Right after each market day&apos;s close (1:00pm PT) it settles the condor expiring today as a win or a loss, sets the next
               size from the ladder ({levels.join(", ")} contracts: a loss moves up a level, any win goes back to level 1, and a loss on
               level {levels.length} starts over), then sells a {name} iron condor expiring the next trading day with ${r.width} wings
               {r.evenMoney ? `, short strikes placed so it collects about $${(r.width * 50).toFixed(0)}` : ""}. It skips a day if the
