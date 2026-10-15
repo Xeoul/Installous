@@ -339,8 +339,10 @@ export async function getChain(rawTicker: string, from: string): Promise<Chain> 
   return {
     expiry,
     spot,
-    // Index options keep trading 15 minutes past the close, when Yahoo already reports POST.
-    marketOpen: r.quote?.marketState === "REGULAR" || r.quote?.marketState === "POST",
+    // Yahoo's option data runs ~15 minutes behind and its market state is unreliable
+    // around the close (index options trade until 4:15pm); the bot's own exchange
+    // calendar decides when they trade, so only a pre-market state counts as closed.
+    marketOpen: !["PRE", "PREPRE"].includes(r.quote?.marketState ?? ""),
     puts: pmLegs("put", o.puts, spot, years),
     calls: pmLegs("call", o.calls, spot, years),
   };
