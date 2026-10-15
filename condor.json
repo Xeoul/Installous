@@ -27,15 +27,15 @@
   "streak": 0,
   "bust": null,
   "open": {
-    "date": "2026-10-14",
-    "expiry": "2026-10-15",
-    "openedAt": "2026-10-14T19:36:56.382Z",
-    "spot": 7713.44,
-    "putLong": 7675,
-    "putShort": 7680,
-    "callShort": 7745,
-    "callLong": 7750,
-    "credit": 2.78,
+    "date": "2026-10-15",
+    "expiry": "2026-10-16",
+    "openedAt": "2026-10-15T19:27:00.383Z",
+    "spot": 7744.84,
+    "putLong": 7710,
+    "putShort": 7715,
+    "callShort": 7770,
+    "callLong": 7775,
+    "credit": 2.18,
     "contracts": 1,
     "level": 0,
     "streak": 0,
@@ -49,7 +49,26 @@
     }
   ],
   "note": null,
-  "updatedAt": "2026-10-15T18:48:30.621Z",
+  "updatedAt": "2026-10-15T19:27:00.383Z",
   "level": 0,
-  "settling": null
+  "settling": {
+    "date": "2026-10-14",
+    "expiry": "2026-10-15",
+    "openedAt": "2026-10-14T19:36:56.382Z",
+    "spot": 7713.44,
+    "putLong": 7675,
+    "putShort": 7680,
+    "callShort": 7745,
+    "callLong": 7750,
+    "credit": 2.78,
+    "contracts": 1,
+    "level": 0,
+    "streak": 0,
+    "capped": false,
+    "rolled": {
+      "at": "2026-10-15T19:27:00.383Z",
+      "spot": 7744.84,
+      "pnl": 277.84
+    }
+  }
 }
