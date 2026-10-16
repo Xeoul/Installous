@@ -167,12 +167,37 @@ export function getHistory(ticker: string, range: ChartRange): Promise<ChartData
   return cachedJson(`/api/history/${encodeURIComponent(t)}?range=${range}`, 30_000);
 }
 
-/** The S&P 500's latest session (5-minute bars), always fresh: the demo republishes it every half hour. */
-export async function getSpxDay(): Promise<ChartData> {
-  if (!DEMO) return getHistory("^GSPC", "1d");
-  const r = await fetch(`${BASE_PATH}/demo-data/spx-1d.json?t=${Math.floor(Date.now() / 60_000)}`, { cache: "no-store" });
-  if (!r.ok) throw new Error(`Couldn't load the S&P 500 chart (${r.status})`);
-  return r.json() as Promise<ChartData>;
+// The S&P 500's session so far, saved every few minutes by the condor bot's
+// run on the fund-data branch (scripts/spx-bars.ts). GitHub's API serves it
+// fresh; the raw file can lag up to five minutes; the demo snapshot lags more.
+const SPX_DAY_SOURCES: [string, RequestInit?][] = [
+  ["https://api.github.com/repos/Xeoul/Installous/contents/spx-1d.json?ref=fund-data", { headers: { Accept: "application/vnd.github.raw" } }],
+  ["https://raw.githubusercontent.com/Xeoul/Installous/fund-data/spx-1d.json"],
+];
+let spxDay: { at: number; day: Promise<ChartData> } | null = null;
+
+/** The latest S&P 500 bars already loaded on this page, if any (for an instant first paint). */
+export let lastSpxDay: ChartData | null = null;
+
+/** The S&P 500's latest session (5-minute bars), shared across the page and refetched after a minute. */
+export function getSpxDay(): Promise<ChartData> {
+  if (spxDay && Date.now() - spxDay.at < 60_000) return spxDay.day;
+  const day = (async () => {
+    if (!DEMO) return getHistory("^GSPC", "1d");
+    const sources: [string, RequestInit?][] = [...SPX_DAY_SOURCES, [`${BASE_PATH}/demo-data/spx-1d.json?t=${Math.floor(Date.now() / 60_000)}`]];
+    for (const [url, init] of sources) {
+      try {
+        const r = await fetch(url, { cache: "no-store", ...init });
+        if (r.ok) return (await r.json()) as ChartData;
+      } catch {
+        // try the next source
+      }
+    }
+    throw new Error("Couldn't load the S&P 500 chart");
+  })();
+  day.then((d) => (lastSpxDay = d)).catch(() => (spxDay = null));
+  spxDay = { at: Date.now(), day };
+  return day;
 }
 
 export function getEvents(ticker: string): Promise<StockEvents> {

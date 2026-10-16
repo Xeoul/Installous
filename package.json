@@ -11,6 +11,7 @@
     "build:demo": "node scripts/build-demo.mjs",
     "fund": "tsx --conditions=react-server scripts/fund.ts",
     "condor": "tsx --conditions=react-server scripts/condor.ts",
+    "spx-bars": "tsx --conditions=react-server scripts/spx-bars.ts",
     "test": "vitest run",
     "typecheck": "next typegen && tsc --noEmit",
     "backtest": "tsx --conditions=react-server scripts/backtest.ts",

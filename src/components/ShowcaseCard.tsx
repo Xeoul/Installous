@@ -6,7 +6,7 @@ import { Change } from "@/components/Change";
 import { OrderTicket, PositionCard, TradeHistory, useNow } from "@/components/CondorLive";
 import { LineChart } from "@/components/LineChart";
 import { RollingNumber } from "@/components/RollingNumber";
-import { getCondorBot, getFund } from "@/lib/client-data";
+import { getCondorBot, getFund, getSpxDay } from "@/lib/client-data";
 import { botName, botQuoteTicker, type BotState, type BotTrade } from "@/lib/condor-bot";
 import { fmtMonthDay } from "@/lib/dates";
 import { money, signedPct, usd0 } from "@/lib/format";
@@ -61,6 +61,8 @@ export function ShowcaseCard({ portfolio }: { portfolio: PortfolioSnapshot | nul
   useEffect(() => {
     getFund().then(setFund).catch(() => {});
     getCondorBot().then(setBot).catch(() => {});
+    // Load the S&P 500 chart alongside, so it's ready when the bot card draws.
+    getSpxDay().catch(() => {});
   }, []);
 
   const hasPortfolio = !!portfolio && portfolio.holdings.length > 0;
@@ -238,7 +240,7 @@ function BotPanel({ bot, prices, onUpdate }: { bot: BotState | null; prices: Liv
       <div className="mt-4">
         <OrderTicket bot={bot} onUpdate={onUpdate} name={name} />
         {positions.map((t) => (
-          <PositionCard key={t.date} trade={t} rules={bot.rules} spot={livePrice ?? t.spot} live={livePrice !== undefined} tail={tail} name={name} />
+          <PositionCard key={t.date} trade={t} rules={bot.rules} spot={livePrice ?? t.spot} quoted={livePrice !== undefined} live={livePrice !== undefined} tail={tail} name={name} />
         ))}
       </div>
       {bot.history.length >= 2 ? (

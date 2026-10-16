@@ -5,7 +5,7 @@ import { OrderTicket, PositionCard, TradeHistory, useNow } from "@/components/Co
 import { Change } from "@/components/Change";
 import { FundChart } from "@/components/FundChart";
 import { RollingNumber } from "@/components/RollingNumber";
-import { getCondorBot } from "@/lib/client-data";
+import { getCondorBot, getSpxDay } from "@/lib/client-data";
 import { botName, botQuoteTicker, type BotState, type BotTrade } from "@/lib/condor-bot";
 import { fmtWeekday as fmtDate, nyDate } from "@/lib/dates";
 import { signedUsd0 as signed, usd0 } from "@/lib/format";
@@ -27,6 +27,8 @@ export function CondorBot() {
     getCondorBot()
       .then(setBot)
       .catch(() => setError(true));
+    // Load the S&P 500 chart alongside, so it's ready when the position card draws.
+    getSpxDay().catch(() => {});
   }, []);
 
   const r = bot?.rules;
@@ -72,7 +74,7 @@ export function CondorBot() {
           <OrderTicket bot={bot} onUpdate={setBot} name={name} />
           {spot !== undefined &&
             positions.map((t) => (
-              <PositionCard key={t.date} trade={t} rules={r} name={name} spot={spot} live={live?.marketHours === MarketHours.Regular} tail={tail} />
+              <PositionCard key={t.date} trade={t} rules={r} name={name} spot={spot} quoted={!!live} live={live?.marketHours === MarketHours.Regular} tail={tail} />
             ))}
           <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
             <Tile

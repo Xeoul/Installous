@@ -23,6 +23,44 @@ set -uo pipefail
 TIMES=${TIMES:-"16:06 16:08 16:10 16:12 16:14 16:20 16:35 16:50"}
 deadline=$(($(date +%s) + ${BUDGET_MIN:-330} * 60))
 
+git -C "$FUND_DIR" config user.name "github-actions[bot]"
+git -C "$FUND_DIR" config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+
+# Whether the US market is open (New York clock; holidays just find nothing new).
+market_open() {
+  local day hm
+  day=$(TZ=America/New_York date +%u)
+  hm=$((10#$(TZ=America/New_York date +%H%M)))
+  [ "$day" -le 5 ] && [ "$hm" -ge 930 ] && [ "$hm" -le 1605 ]
+}
+
+# Save the S&P 500's session so far (spx-1d.json) for the site's live index
+# chart. Best effort: a failure here never touches the bot.
+refresh_bars() {
+  npm run -s spx-bars >/dev/null 2>&1 || return 0
+  (
+    cd "$FUND_DIR" || exit 0
+    git add spx-1d.json
+    git diff --cached --quiet && exit 0
+    git commit -q -m "Update S&P 500 bars $(date -u +%Y-%m-%dT%H:%MZ)" || exit 0
+    for _ in 1 2 3; do git pull -q --rebase && git push -q && exit 0; sleep 3; done
+  ) || true
+}
+
+# Sleep until epoch $1, refreshing the S&P 500 bars every BARS_EVERY seconds
+# while the market is open.
+wait_until() {
+  local until=$1 every=${BARS_EVERY:-300} now
+  while now=$(date +%s); [ "$now" -lt "$until" ]; do
+    if market_open; then
+      refresh_bars
+      now=$(date +%s)
+      [ "$now" -lt "$until" ] || break
+    fi
+    sleep $((until - now < every ? until - now : every))
+  done
+}
+
 save() {
   (
     cd "$FUND_DIR" || exit 1
@@ -77,7 +115,7 @@ while :; do
     if [ -n "${HANDOFF:-}" ]; then
       # Keep the chain going: wait as long as this job may, then start the next run.
       echo "Next step $(TZ=America/New_York date -d "@$at" '+%a %H:%M %Z') is past this run's limit; handing off in $((deadline - now))s"
-      [ "$deadline" -gt "$now" ] && sleep $((deadline - now))
+      wait_until "$deadline"
       eval "$HANDOFF" || { echo "::error::Couldn't start the successor run"; exit 1; }
     else
       echo "Next step $(TZ=America/New_York date -d "@$at" '+%a %H:%M %Z') is past this run's limit; a later run takes over."
@@ -85,7 +123,7 @@ while :; do
     exit $status
   fi
   echo "Waiting until $(TZ=America/New_York date -d "@$at" '+%a %H:%M %Z') ($((at - now))s)"
-  sleep $((at - now))
+  wait_until "$at"
   step
   status=$?
 done
