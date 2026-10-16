@@ -3,7 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { RollingNumber } from "@/components/RollingNumber";
 import type { ChartData } from "@/lib/chart";
-import { getSpxDay, refreshCondorBot } from "@/lib/client-data";
+import { getSpxDay, lastSpxDay, refreshCondorBot } from "@/lib/client-data";
 import type { BotRules, BotState, BotTrade } from "@/lib/condor-bot";
 import { condorValue, impliedVol, markCondor, nyClose, orderPhase, payoff, yearsLeft } from "@/lib/condor-live";
 import { fmtMonthDay, fmtWeekday, nyDate } from "@/lib/dates";
@@ -212,8 +212,28 @@ function OrderLog({ bot, status, name, now }: { bot: BotState; status: ReturnTyp
 }
 
 /** An open condor, marked live like a brokerage position. */
-export function PositionCard({ trade, rules, spot, live, tail, name }: { trade: BotTrade; rules: BotRules; spot: number; live: boolean; tail: TailPoint[]; name: string }) {
+export function PositionCard({
+  trade,
+  rules,
+  spot: given,
+  quoted,
+  live,
+  tail,
+  name,
+}: {
+  trade: BotTrade;
+  rules: BotRules;
+  spot: number;
+  /** Whether `spot` is a streamed quote (else it's the fill's price, a stand-in). */
+  quoted: boolean;
+  live: boolean;
+  tail: TailPoint[];
+  name: string;
+}) {
   const now = useNow(5000, live);
+  // Until a quote streams in, the latest published bar beats the price at the fill.
+  const bar = useSpxDay()?.points.at(-1);
+  const spot = !quoted && bar && bar.t > Date.parse(trade.openedAt) ? bar.close : given;
   const vol = useMemo(() => impliedVol(trade, rules.slippage), [trade, rules.slippage]);
   const mark = markCondor(trade, spot, now, vol, rules.feePerLeg);
   const credit = trade.credit * 100 * trade.contracts;
@@ -305,7 +325,7 @@ function Stat({ label, value }: { label: string; value: React.ReactNode }) {
 
 /** Today's S&P 500 session, refreshed every few minutes (live ticks fill in between). */
 function useSpxDay(): ChartData | null {
-  const [day, setDay] = useState<ChartData | null>(null);
+  const [day, setDay] = useState<ChartData | null>(lastSpxDay);
   useEffect(() => {
     let alive = true;
     const load = () => getSpxDay().then((d) => alive && setDay(d)).catch(() => {});
@@ -331,7 +351,13 @@ function SpxDayChart({ tail, spot, name }: { tail: TailPoint[]; spot: number; na
   const start = end - 6.5 * 3_600_000;
   const bars = (day?.points ?? []).filter((p) => p.t >= start && p.t <= end);
   const pts = [...bars, ...tail.filter((p) => p.t >= start && p.t <= end && p.t > (bars.at(-1)?.t ?? 0))];
-  if (pts.length < 2) return <div className="w-40 text-[11px] text-muted sm:text-right">{name} chart loads with the next update</div>;
+  if (pts.length < 2)
+    return (
+      <div className="w-full sm:w-56" aria-label={`${name} chart loading`}>
+        <div className="mb-1 h-4 w-24 animate-pulse rounded bg-surface-2" />
+        <div className="h-[72px] animate-pulse rounded-lg bg-surface-2" />
+      </div>
+    );
   // Change from the previous close (published with the bars), else from the first point shown.
   const base = bars.length && day ? day.baseline : pts[0].close;
   // The live price once ticks stream; until then the latest bar (the card's fallback is the fill's price).
