@@ -1,5 +1,21 @@
 [
   {
+    "date": "2026-10-20",
+    "at": "2026-10-20 16:06",
+    "short": "Level 1 - 1 contract",
+    "title": "Iron condor opened · level 1 of 3, 1×",
+    "message": "SPX 7675/7680p · 7735/7740c for $228.00 credit (SPX 7708.99).\nExpires Wed, Oct 21 at the close · win up to $228.00, lose up to $272.00.",
+    "link": "https://xeoul.github.io/Installous/options/"
+  },
+  {
+    "date": "2026-10-20",
+    "at": "2026-10-20 16:06",
+    "short": "Condor won +$203",
+    "title": "Iron condor won +$202.84 (+0.79%)",
+    "message": "SPX closed 7712.57 on Tue, Oct 20 · 1× 7675/7680p · 7715/7720c.\nAccount $25,952.04 · +$952.04 (+3.81%) total.",
+    "link": "https://xeoul.github.io/Installous/options/"
+  },
+  {
     "date": "2026-10-19",
     "at": "2026-10-19 16:06",
     "short": "Level 1 - 1 contract",
