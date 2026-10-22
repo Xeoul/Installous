@@ -19,7 +19,7 @@ export function Nav() {
   const pathname = usePathname();
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-bg pt-[env(safe-area-inset-top)] [view-transition-name:site-header]">
-      <div className="mx-auto flex max-w-6xl items-center gap-x-4 gap-y-2 px-[max(1rem,env(safe-area-inset-left))] py-2.5 sm:flex-wrap sm:py-3 lg:flex-nowrap">
+      <div className="mx-auto flex max-w-[1920px] items-center gap-x-4 gap-y-2 px-[max(1rem,env(safe-area-inset-left))] lg:px-8 min-[1600px]:px-12 py-2.5 sm:flex-wrap sm:py-3 lg:flex-nowrap">
         <Link href="/" className="flex shrink-0 items-center gap-2 text-lg font-semibold">
           <svg viewBox="0 0 64 64" className="h-7 w-7" aria-hidden>
             <rect width="64" height="64" rx="14" fill="var(--accent)" />

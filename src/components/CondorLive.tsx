@@ -417,7 +417,7 @@ function PayoffChart({ trade, rules, spot, vol, now }: { trade: BotTrade; rules:
   // Beside the dot, kept inside the chart (below it when the dot sits at the top edge).
   const labelY = Math.min(Math.max(dotY + 3, 12), H - 20);
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="mx-auto mt-3 block w-full max-w-md" role="img" aria-label={`Payoff: profit between ${trade.putShort} and ${trade.callShort}, index at ${spot.toFixed(2)}`}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="mx-auto mt-3 block w-full max-w-md min-[1600px]:max-w-4xl" role="img" aria-label={`Payoff: profit between ${trade.putShort} and ${trade.callShort}, index at ${spot.toFixed(2)}`}>
       <defs>
         <clipPath id={`${id}a`}>
           <rect x="0" y="0" width={W} height={zero} />
