@@ -51,7 +51,7 @@ export default function FundPage() {
               Paper money
             </span>
           </div>
-          <p className="mt-1 max-w-2xl text-text-2">
+          <p className="mt-1 max-w-4xl text-text-2">
             A {r ? money(r.startCash).replace(".00", "") : "$100,000"} simulated portfolio that picks stocks by rules
             alone, using the Installous score. No human picks. It&apos;s measured against simply buying the S&amp;P 500.
           </p>

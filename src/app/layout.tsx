@@ -39,12 +39,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         {/* The header comes first, padded for the status bar wherever a browser draws the page under it. */}
         <Nav />
-        <main className="mx-auto w-full max-w-6xl flex-1 px-[max(1rem,env(safe-area-inset-left))] py-5 sm:py-6">
+        <main className="mx-auto w-full max-w-[1920px] flex-1 px-[max(1rem,env(safe-area-inset-left))] lg:px-8 min-[1600px]:px-12 py-5 sm:py-6">
           {/* Navigations are transitions, so the page crossfades instead of swapping (see globals.css). */}
           <ViewTransition name="page">{children}</ViewTransition>
         </main>
         {/* On phones, leave room for the tab bar and the home indicator. */}
-        <footer className="mx-auto w-full max-w-6xl px-[max(1rem,env(safe-area-inset-left))] pb-[calc(5rem+env(safe-area-inset-bottom))] text-xs text-muted sm:pb-6">
+        <footer className="mx-auto w-full max-w-[1920px] px-[max(1rem,env(safe-area-inset-left))] lg:px-8 min-[1600px]:px-12 pb-[calc(5rem+env(safe-area-inset-bottom))] text-xs text-muted sm:pb-6">
           Market data from Yahoo Finance, may be delayed. Scores and AI analysis are research tools, not financial
           advice.
         </footer>

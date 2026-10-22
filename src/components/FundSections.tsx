@@ -119,7 +119,7 @@ export function Backtest({ bt }: { bt: BacktestView }) {
   const years = (d: string) => new Date(`${d}T12:00:00Z`).getUTCFullYear();
   return (
     <Card title={`Backtest: the same rules over ${years(bt.endDate) - years(bt.startDate)} years`}>
-      <p className="mb-4 max-w-3xl text-sm text-text-2">
+      <p className="mb-4 max-w-5xl text-sm text-text-2">
         The fund&apos;s rules replayed day by day since{" "}
         {fmtLongMonthYear(bt.startDate)}.
         Free data only has today&apos;s company fundamentals, so this version ranks stocks by the{" "}

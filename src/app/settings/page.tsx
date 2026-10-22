@@ -33,7 +33,7 @@ export default function SettingsPage() {
   if (!profile) return <div className="h-64 animate-pulse rounded-2xl bg-surface-2" />;
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="w-full space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Investor profile</h1>
         <p className="text-text-2">Installous tailors its picks, position sizing, and risk commentary to this profile.</p>
