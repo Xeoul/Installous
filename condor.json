@@ -23,25 +23,29 @@
     "minCredit": 1.5,
     "skipNews": true
   },
-  "equity": 23556.28,
-  "streak": 0,
+  "equity": 23299.12,
+  "streak": 1,
   "bust": null,
-  "open": {
-    "date": "2026-10-26",
-    "expiry": "2026-10-27",
-    "openedAt": "2026-10-26T20:06:01.163Z",
-    "spot": 7677.76,
-    "putLong": 7655,
-    "putShort": 7660,
-    "callShort": 7695,
-    "callLong": 7700,
-    "credit": 2.43,
-    "contracts": 1,
-    "level": 0,
-    "streak": 0,
-    "capped": false
-  },
+  "open": null,
   "trades": [
+    {
+      "date": "2026-10-26",
+      "expiry": "2026-10-27",
+      "openedAt": "2026-10-26T20:06:01.163Z",
+      "spot": 7677.76,
+      "putLong": 7655,
+      "putShort": 7660,
+      "callShort": 7695,
+      "callLong": 7700,
+      "credit": 2.43,
+      "contracts": 1,
+      "level": 0,
+      "streak": 0,
+      "capped": false,
+      "close": 7722.6,
+      "pnl": -257.16,
+      "equityAfter": 23299.12
+    },
     {
       "date": "2026-10-23",
       "expiry": "2026-10-26",
@@ -223,10 +227,14 @@
     {
       "date": "2026-10-26",
       "equity": 23556.28
+    },
+    {
+      "date": "2026-10-27",
+      "equity": 23299.12
     }
   ],
-  "note": null,
-  "updatedAt": "2026-10-27T14:47:00.269Z",
-  "level": 0,
+  "note": "Skipped: FOMC on Wed, Oct 28, while the condor would be open.",
+  "updatedAt": "2026-10-27T20:06:01.002Z",
+  "level": 1,
   "settling": null
 }
