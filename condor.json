@@ -26,7 +26,21 @@
   "equity": 23299.12,
   "streak": 1,
   "bust": null,
-  "open": null,
+  "open": {
+    "date": "2026-10-28",
+    "expiry": "2026-10-29",
+    "openedAt": "2026-10-28T20:06:00.820Z",
+    "spot": 7747.01,
+    "putLong": 7720,
+    "putShort": 7725,
+    "callShort": 7770,
+    "callLong": 7775,
+    "credit": 2.38,
+    "contracts": 3,
+    "level": 1,
+    "streak": 1,
+    "capped": false
+  },
   "trades": [
     {
       "date": "2026-10-26",
@@ -233,8 +247,8 @@
       "equity": 23299.12
     }
   ],
-  "note": "Skipped: FOMC on Wed, Oct 28, while the condor would be open.",
-  "updatedAt": "2026-10-28T18:44:19.025Z",
+  "note": null,
+  "updatedAt": "2026-10-28T20:06:00.820Z",
   "level": 1,
   "settling": null
 }
