@@ -1,6 +1,14 @@
 [
   {
     "date": "2026-10-30",
+    "at": "2026-10-30 16:08",
+    "short": "Level 1 - 1 contract",
+    "title": "Iron condor opened · level 1 of 3, 1×",
+    "message": "SPX 7535/7540p · 7625/7630c for $238.00 credit (SPX 7581.43).\nExpires Mon, Nov 2 at the close · win up to $238.00, lose up to $262.00.",
+    "link": "https://xeoul.github.io/Installous/options/"
+  },
+  {
+    "date": "2026-10-30",
     "at": "2026-10-30 16:06",
     "short": "No condor today: the condor paid only $73 (minimum $150)",
     "title": "No iron condor today",
