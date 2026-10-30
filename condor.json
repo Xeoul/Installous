@@ -23,25 +23,29 @@
     "minCredit": 1.5,
     "skipNews": true
   },
-  "equity": 22629.64,
-  "streak": 2,
+  "equity": 20786.68,
+  "streak": 3,
   "bust": null,
-  "open": {
-    "date": "2026-10-29",
-    "expiry": "2026-10-30",
-    "openedAt": "2026-10-29T20:06:01.393Z",
-    "spot": 7714.71,
-    "putLong": 7705,
-    "putShort": 7710,
-    "callShort": 7715,
-    "callLong": 7720,
-    "credit": 1.93,
-    "contracts": 6,
-    "level": 2,
-    "streak": 2,
-    "capped": false
-  },
+  "open": null,
   "trades": [
+    {
+      "date": "2026-10-29",
+      "expiry": "2026-10-30",
+      "openedAt": "2026-10-29T20:06:01.393Z",
+      "spot": 7714.71,
+      "putLong": 7705,
+      "putShort": 7710,
+      "callShort": 7715,
+      "callLong": 7720,
+      "credit": 1.93,
+      "contracts": 6,
+      "level": 2,
+      "streak": 2,
+      "capped": false,
+      "close": 7580.07,
+      "pnl": -1842.96,
+      "equityAfter": 20786.68
+    },
     {
       "date": "2026-10-28",
       "expiry": "2026-10-29",
@@ -267,10 +271,14 @@
     {
       "date": "2026-10-29",
       "equity": 22629.64
+    },
+    {
+      "date": "2026-10-30",
+      "equity": 20786.68
     }
   ],
-  "note": null,
-  "updatedAt": "2026-10-30T15:28:03.780Z",
-  "level": 2,
+  "note": "Skipped: the condor paid only $73 (minimum $150).",
+  "updatedAt": "2026-10-30T20:06:01.208Z",
+  "level": 0,
   "settling": null
 }
