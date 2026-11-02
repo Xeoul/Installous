@@ -26,7 +26,21 @@
   "equity": 21024.52,
   "streak": 0,
   "bust": null,
-  "open": null,
+  "open": {
+    "date": "2026-11-02",
+    "expiry": "2026-11-03",
+    "openedAt": "2026-11-02T21:08:00.796Z",
+    "spot": 7550.79,
+    "putLong": 7510,
+    "putShort": 7515,
+    "callShort": 7590,
+    "callLong": 7595,
+    "credit": 2.88,
+    "contracts": 1,
+    "level": 0,
+    "streak": 0,
+    "capped": false
+  },
   "trades": [
     {
       "date": "2026-10-30",
@@ -299,8 +313,8 @@
       "equity": 21024.52
     }
   ],
-  "note": "Skipped: the condor paid only $-102 (minimum $150).",
-  "updatedAt": "2026-11-02T21:06:01.334Z",
+  "note": null,
+  "updatedAt": "2026-11-02T21:08:00.796Z",
   "level": 0,
   "settling": null
 }
