@@ -23,25 +23,29 @@
     "minCredit": 1.5,
     "skipNews": true
   },
-  "equity": 21035.2,
-  "streak": 1,
+  "equity": 20323.72,
+  "streak": 2,
   "bust": null,
-  "open": {
-    "date": "2026-11-04",
-    "expiry": "2026-11-05",
-    "openedAt": "2026-11-04T21:06:00.632Z",
-    "spot": 7693.88,
-    "putLong": 7660,
-    "putShort": 7665,
-    "callShort": 7720,
-    "callLong": 7725,
-    "credit": 2.63,
-    "contracts": 3,
-    "level": 1,
-    "streak": 1,
-    "capped": false
-  },
+  "open": null,
   "trades": [
+    {
+      "date": "2026-11-04",
+      "expiry": "2026-11-05",
+      "openedAt": "2026-11-04T21:06:00.632Z",
+      "spot": 7693.88,
+      "putLong": 7660,
+      "putShort": 7665,
+      "callShort": 7720,
+      "callLong": 7725,
+      "credit": 2.63,
+      "contracts": 3,
+      "level": 1,
+      "streak": 1,
+      "capped": false,
+      "close": 7353.73,
+      "pnl": -711.48,
+      "equityAfter": 20323.72
+    },
     {
       "date": "2026-11-03",
       "expiry": "2026-11-04",
@@ -355,10 +359,14 @@
     {
       "date": "2026-11-04",
       "equity": 21035.2
+    },
+    {
+      "date": "2026-11-05",
+      "equity": 20323.72
     }
   ],
-  "note": null,
-  "updatedAt": "2026-11-05T17:53:16.653Z",
-  "level": 1,
+  "note": "Skipped: Jobs report on Fri, Nov 6, while the condor would be open.",
+  "updatedAt": "2026-11-05T21:06:01.144Z",
+  "level": 2,
   "settling": null
 }
