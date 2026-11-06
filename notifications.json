@@ -1,5 +1,13 @@
 [
   {
+    "date": "2026-11-06",
+    "at": "2026-11-06 16:06",
+    "short": "Level 3 - 6 contracts",
+    "title": "Iron condor opened · level 3 of 3, 6×",
+    "message": "SPX 7270/7275p · 7490/7495c for $918.00 credit (SPX 7384.62).\nExpires Mon, Nov 9 at the close · win up to $918.00, lose up to $2,082.00.",
+    "link": "https://xeoul.github.io/Installous/options/"
+  },
+  {
     "date": "2026-11-05",
     "at": "2026-11-05 16:06",
     "short": "No condor today: Jobs report on Fri, Nov 6",
