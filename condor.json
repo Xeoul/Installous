@@ -23,25 +23,29 @@
     "minCredit": 1.5,
     "skipNews": true
   },
-  "equity": 20323.72,
-  "streak": 2,
+  "equity": 18240.76,
+  "streak": 3,
   "bust": null,
-  "open": {
-    "date": "2026-11-06",
-    "expiry": "2026-11-09",
-    "openedAt": "2026-11-06T21:06:01.004Z",
-    "spot": 7384.62,
-    "putLong": 7270,
-    "putShort": 7275,
-    "callShort": 7490,
-    "callLong": 7495,
-    "credit": 1.53,
-    "contracts": 6,
-    "level": 2,
-    "streak": 2,
-    "capped": false
-  },
+  "open": null,
   "trades": [
+    {
+      "date": "2026-11-06",
+      "expiry": "2026-11-09",
+      "openedAt": "2026-11-06T21:06:01.004Z",
+      "spot": 7384.62,
+      "putLong": 7270,
+      "putShort": 7275,
+      "callShort": 7490,
+      "callLong": 7495,
+      "credit": 1.53,
+      "contracts": 6,
+      "level": 2,
+      "streak": 2,
+      "capped": false,
+      "close": 7549.81,
+      "pnl": -2082.96,
+      "equityAfter": 18240.76
+    },
     {
       "date": "2026-11-04",
       "expiry": "2026-11-05",
@@ -377,10 +381,14 @@
     {
       "date": "2026-11-05",
       "equity": 20323.72
+    },
+    {
+      "date": "2026-11-09",
+      "equity": 18240.76
     }
   ],
-  "note": null,
-  "updatedAt": "2026-11-09T17:03:40.043Z",
-  "level": 2,
+  "note": "Skipped: CPI on Tue, Nov 10, while the condor would be open.",
+  "updatedAt": "2026-11-09T21:06:00.878Z",
+  "level": 0,
   "settling": null
 }

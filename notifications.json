@@ -1,5 +1,21 @@
 [
   {
+    "date": "2026-11-09",
+    "at": "2026-11-09 16:06",
+    "short": "No condor today: CPI on Tue, Nov 10",
+    "title": "No iron condor today",
+    "message": "Skipped: CPI on Tue, Nov 10, while the condor would be open.",
+    "link": "https://xeoul.github.io/Installous/options/"
+  },
+  {
+    "date": "2026-11-09",
+    "at": "2026-11-09 16:06",
+    "short": "Condor lost −$2,083",
+    "title": "Iron condor lost −$2,082.96 (−10.25%)",
+    "message": "SPX closed 7549.81 on Mon, Nov 9 · 6× 7270/7275p · 7490/7495c.\nAccount $18,240.76 · −$6,759.24 (−27.04%) total.",
+    "link": "https://xeoul.github.io/Installous/options/"
+  },
+  {
     "date": "2026-11-06",
     "at": "2026-11-06 16:06",
     "short": "Level 3 - 6 contracts",
