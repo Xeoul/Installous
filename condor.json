@@ -26,7 +26,21 @@
   "equity": 18240.76,
   "streak": 3,
   "bust": null,
-  "open": null,
+  "open": {
+    "date": "2026-11-10",
+    "expiry": "2026-11-11",
+    "openedAt": "2026-11-10T21:06:00.634Z",
+    "spot": 7529.45,
+    "putLong": 7515,
+    "putShort": 7520,
+    "callShort": 7535,
+    "callLong": 7540,
+    "credit": 2.13,
+    "contracts": 1,
+    "level": 0,
+    "streak": 3,
+    "capped": false
+  },
   "trades": [
     {
       "date": "2026-11-06",
@@ -387,8 +401,8 @@
       "equity": 18240.76
     }
   ],
-  "note": "Skipped: CPI on Tue, Nov 10, while the condor would be open.",
-  "updatedAt": "2026-11-10T21:03:29.696Z",
+  "note": null,
+  "updatedAt": "2026-11-10T21:06:00.634Z",
   "level": 0,
   "settling": null
 }
