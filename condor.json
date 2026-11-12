@@ -23,25 +23,43 @@
     "minCredit": 1.5,
     "skipNews": true
   },
-  "equity": 17953.6,
-  "streak": 4,
+  "equity": 17797.12,
+  "streak": 5,
   "bust": null,
   "open": {
-    "date": "2026-11-11",
-    "expiry": "2026-11-12",
-    "openedAt": "2026-11-11T21:06:01.382Z",
-    "spot": 7622.34,
-    "putLong": 7590,
-    "putShort": 7595,
-    "callShort": 7650,
-    "callLong": 7655,
-    "credit": 2.08,
-    "contracts": 3,
-    "level": 1,
-    "streak": 4,
+    "date": "2026-11-12",
+    "expiry": "2026-11-13",
+    "openedAt": "2026-11-12T21:06:01.048Z",
+    "spot": 7588.43,
+    "putLong": 7560,
+    "putShort": 7565,
+    "callShort": 7610,
+    "callLong": 7615,
+    "credit": 2.28,
+    "contracts": 6,
+    "level": 2,
+    "streak": 5,
     "capped": false
   },
   "trades": [
+    {
+      "date": "2026-11-11",
+      "expiry": "2026-11-12",
+      "openedAt": "2026-11-11T21:06:01.382Z",
+      "spot": 7622.34,
+      "putLong": 7590,
+      "putShort": 7595,
+      "callShort": 7650,
+      "callLong": 7655,
+      "credit": 2.08,
+      "contracts": 3,
+      "level": 1,
+      "streak": 4,
+      "capped": false,
+      "close": 7592.4,
+      "pnl": -156.48,
+      "equityAfter": 17797.12
+    },
     {
       "date": "2026-11-10",
       "expiry": "2026-11-11",
@@ -421,10 +439,14 @@
     {
       "date": "2026-11-11",
       "equity": 17953.6
+    },
+    {
+      "date": "2026-11-12",
+      "equity": 17797.12
     }
   ],
   "note": null,
-  "updatedAt": "2026-11-12T17:51:11.770Z",
-  "level": 1,
+  "updatedAt": "2026-11-12T21:06:01.048Z",
+  "level": 2,
   "settling": null
 }
