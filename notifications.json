@@ -1,5 +1,21 @@
 [
   {
+    "date": "2026-11-17",
+    "at": "2026-11-17 16:06",
+    "short": "No condor today: the condor paid only $-2882 (minimum $150)",
+    "title": "No iron condor today",
+    "message": "Skipped: the condor paid only $-2882 (minimum $150).",
+    "link": "https://xeoul.github.io/Installous/options/"
+  },
+  {
+    "date": "2026-11-17",
+    "at": "2026-11-17 16:06",
+    "short": "Condor lost −$801",
+    "title": "Iron condor lost −$801.48 (−4.75%)",
+    "message": "SPX closed 7340.53 on Tue, Nov 17 · 3× 7410/7415p · 7420/7425c.\nAccount $16,087.52 · −$8,912.48 (−35.65%) total.",
+    "link": "https://xeoul.github.io/Installous/options/"
+  },
+  {
     "date": "2026-11-16",
     "at": "2026-11-16 16:06",
     "short": "Level 2 - 3 contracts",
