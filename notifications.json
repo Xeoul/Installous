@@ -1,6 +1,14 @@
 [
   {
     "date": "2026-11-17",
+    "at": "2026-11-17 16:10",
+    "short": "No condor today: the condor paid only $-2352 (minimum $150)",
+    "title": "No iron condor today",
+    "message": "Skipped: the condor paid only $-2352 (minimum $150).",
+    "link": "https://xeoul.github.io/Installous/options/"
+  },
+  {
+    "date": "2026-11-17",
     "at": "2026-11-17 16:08",
     "short": "No condor today: the condor paid only $-2307 (minimum $150)",
     "title": "No iron condor today",
