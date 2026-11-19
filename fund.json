@@ -27,7 +27,7 @@
       "shares": 49.01192810646116,
       "costBasis": 204.03196499999999,
       "openedAt": "2026-09-29",
-      "lastPrice": 206.58
+      "lastPrice": 206.5
     },
     {
       "ticker": "MSFT",
@@ -51,7 +51,7 @@
       "shares": 44.31489280964165,
       "costBasis": 225.6577725,
       "openedAt": "2026-09-29",
-      "lastPrice": 183.42
+      "lastPrice": 183.31
     },
     {
       "ticker": "TXN",
@@ -67,7 +67,7 @@
       "shares": 61.95569501782505,
       "costBasis": 161.40566249999998,
       "openedAt": "2026-09-29",
-      "lastPrice": 158.95
+      "lastPrice": 158.93
     },
     {
       "ticker": "AVGO",
@@ -83,7 +83,7 @@
       "shares": 28.48774381908274,
       "costBasis": 286.92339,
       "openedAt": "2026-11-03",
-      "lastPrice": 283.51
+      "lastPrice": 283.54
     }
   ],
   "lastRebalance": "2026-11-17",
@@ -265,8 +265,8 @@
     },
     {
       "date": "2026-11-19",
-      "equity": 86838.88,
-      "benchmark": 93681.54
+      "equity": 86829.7,
+      "benchmark": 93686.77
     }
   ],
   "trades": [
@@ -391,5 +391,5 @@
       "reason": "New pick: #3 with score 80 (Strong Buy); strongest on momentum 90, quality 85"
     }
   ],
-  "updatedAt": "2026-11-19T21:07:34.735Z"
+  "updatedAt": "2026-11-19T21:28:46.031Z"
 }
