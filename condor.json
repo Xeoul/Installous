@@ -23,25 +23,29 @@
     "minCredit": 1.5,
     "skipNews": true
   },
-  "equity": 15935.4,
-  "streak": 1,
+  "equity": 15856.92,
+  "streak": 2,
   "bust": null,
-  "open": {
-    "date": "2026-11-19",
-    "expiry": "2026-11-20",
-    "openedAt": "2026-11-19T21:06:00.932Z",
-    "spot": 7194.49,
-    "putLong": 7185,
-    "putShort": 7190,
-    "callShort": 7195,
-    "callLong": 7200,
-    "credit": 4.74,
-    "contracts": 3,
-    "level": 1,
-    "streak": 1,
-    "capped": false
-  },
+  "open": null,
   "trades": [
+    {
+      "date": "2026-11-19",
+      "expiry": "2026-11-20",
+      "openedAt": "2026-11-19T21:06:00.932Z",
+      "spot": 7194.49,
+      "putLong": 7185,
+      "putShort": 7190,
+      "callShort": 7195,
+      "callLong": 7200,
+      "credit": 4.74,
+      "contracts": 3,
+      "level": 1,
+      "streak": 1,
+      "capped": false,
+      "close": 6910.39,
+      "pnl": -78.48,
+      "equityAfter": 15856.92
+    },
     {
       "date": "2026-11-18",
       "expiry": "2026-11-19",
@@ -553,10 +557,14 @@
     {
       "date": "2026-11-19",
       "equity": 15935.4
+    },
+    {
+      "date": "2026-11-20",
+      "equity": 15856.92
     }
   ],
-  "note": null,
-  "updatedAt": "2026-11-20T16:14:40.438Z",
-  "level": 1,
+  "note": "Couldn't find quoted strikes for the condor.",
+  "updatedAt": "2026-11-20T21:06:01.236Z",
+  "level": 2,
   "settling": null
 }
