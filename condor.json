@@ -26,7 +26,21 @@
   "equity": 15856.92,
   "streak": 2,
   "bust": null,
-  "open": null,
+  "open": {
+    "date": "2026-11-23",
+    "expiry": "2026-11-24",
+    "openedAt": "2026-11-23T21:06:01.325Z",
+    "spot": 7258.13,
+    "putLong": 7220,
+    "putShort": 7225,
+    "callShort": 7290,
+    "callLong": 7295,
+    "credit": 2.98,
+    "contracts": 6,
+    "level": 2,
+    "streak": 2,
+    "capped": false
+  },
   "trades": [
     {
       "date": "2026-11-19",
@@ -563,8 +577,8 @@
       "equity": 15856.92
     }
   ],
-  "note": "Couldn't find quoted strikes for the condor.",
-  "updatedAt": "2026-11-23T17:03:17.859Z",
+  "note": null,
+  "updatedAt": "2026-11-23T21:06:01.325Z",
   "level": 2,
   "settling": null
 }
