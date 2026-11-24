@@ -8,10 +8,10 @@
     {
       "ticker": "MU",
       "name": "Micron Technology, Inc.",
-      "shares": 9.386390796766449,
-      "costBasis": 1065.3722199,
+      "shares": 12.006310994154425,
+      "costBasis": 970.4534633967038,
       "openedAt": "2026-09-29",
-      "lastPrice": 707.7
+      "lastPrice": 630.0729
     },
     {
       "ticker": "NVDA",
@@ -19,15 +19,15 @@
       "shares": 43.87621816835217,
       "costBasis": 227.9139,
       "openedAt": "2026-09-29",
-      "lastPrice": 165.05
+      "lastPrice": 155.38
     },
     {
       "ticker": "CVX",
       "name": "Chevron Corporation",
-      "shares": 49.01192810646116,
+      "shares": 40.82818809059552,
       "costBasis": 204.03196499999999,
       "openedAt": "2026-09-29",
-      "lastPrice": 206.17
+      "lastPrice": 208.91
     },
     {
       "ticker": "MSFT",
@@ -35,7 +35,7 @@
       "shares": 19.60227205622904,
       "costBasis": 510.14494499999995,
       "openedAt": "2026-09-29",
-      "lastPrice": 492.5
+      "lastPrice": 496.13
     },
     {
       "ticker": "META",
@@ -43,7 +43,7 @@
       "shares": 13.606047507147597,
       "costBasis": 734.9673,
       "openedAt": "2026-09-29",
-      "lastPrice": 597.6
+      "lastPrice": 589.82
     },
     {
       "ticker": "CRM",
@@ -51,7 +51,7 @@
       "shares": 44.31489280964165,
       "costBasis": 225.6577725,
       "openedAt": "2026-09-29",
-      "lastPrice": 185.46
+      "lastPrice": 193.24
     },
     {
       "ticker": "TXN",
@@ -59,7 +59,7 @@
       "shares": 35.47220250115565,
       "costBasis": 281.91088499999995,
       "openedAt": "2026-09-29",
-      "lastPrice": 291.19
+      "lastPrice": 258.44
     },
     {
       "ticker": "XOM",
@@ -67,15 +67,7 @@
       "shares": 61.95569501782505,
       "costBasis": 161.40566249999998,
       "openedAt": "2026-09-29",
-      "lastPrice": 156.9
-    },
-    {
-      "ticker": "AVGO",
-      "name": "Broadcom Inc.",
-      "shares": 28.15335051194475,
-      "costBasis": 355.19750999999997,
-      "openedAt": "2026-09-29",
-      "lastPrice": 313.55
+      "lastPrice": 158.4
     },
     {
       "ticker": "ABBV",
@@ -83,10 +75,18 @@
       "shares": 28.48774381908274,
       "costBasis": 286.92339,
       "openedAt": "2026-11-03",
-      "lastPrice": 288.45
+      "lastPrice": 300.35
+    },
+    {
+      "ticker": "LLY",
+      "name": "Eli Lilly and Company",
+      "shares": 6.045694123129844,
+      "costBasis": 1410.82506,
+      "openedAt": "2026-11-24",
+      "lastPrice": 1410.12
     }
   ],
-  "lastRebalance": "2026-11-17",
+  "lastRebalance": "2026-11-24",
   "history": [
     {
       "date": "2026-09-29",
@@ -277,6 +277,11 @@
       "date": "2026-11-23",
       "equity": 87087.81,
       "benchmark": 94526.97
+    },
+    {
+      "date": "2026-11-24",
+      "equity": 85288.22,
+      "benchmark": 94041.43
     }
   ],
   "trades": [
@@ -399,7 +404,47 @@
       "price": 286.92,
       "value": 8173.8,
       "reason": "New pick: #3 with score 80 (Strong Buy); strongest on momentum 90, quality 85"
+    },
+    {
+      "date": "2026-11-24",
+      "ticker": "AVGO",
+      "name": "Broadcom Inc.",
+      "side": "sell",
+      "shares": 28.1534,
+      "price": 300.93,
+      "value": 8472.17,
+      "reason": "Fell to #16 (score 68), outside the top 15"
+    },
+    {
+      "date": "2026-11-24",
+      "ticker": "CVX",
+      "name": "Chevron Corporation",
+      "side": "sell",
+      "shares": 8.1837,
+      "price": 208.81,
+      "value": 1708.81,
+      "reason": "Trimmed back to equal weight (12.0% → 10%)"
+    },
+    {
+      "date": "2026-11-24",
+      "ticker": "LLY",
+      "name": "Eli Lilly and Company",
+      "side": "buy",
+      "shares": 6.0457,
+      "price": 1410.83,
+      "value": 8529.42,
+      "reason": "New pick: #8 with score 74 (Strong Buy); strongest on momentum 91, quality 87"
+    },
+    {
+      "date": "2026-11-24",
+      "ticker": "MU",
+      "name": "Micron Technology, Inc.",
+      "side": "buy",
+      "shares": 2.6199,
+      "price": 630.39,
+      "value": 1651.57,
+      "reason": "Topped up to equal weight (6.9% → 10%)"
     }
   ],
-  "updatedAt": "2026-11-24T07:00:21.764Z"
+  "updatedAt": "2026-11-24T21:06:49.232Z"
 }
