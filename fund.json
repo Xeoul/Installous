@@ -11,7 +11,7 @@
       "shares": 12.006310994154425,
       "costBasis": 970.4534633967038,
       "openedAt": "2026-09-29",
-      "lastPrice": 630.0729
+      "lastPrice": 629.79
     },
     {
       "ticker": "NVDA",
@@ -27,7 +27,7 @@
       "shares": 40.82818809059552,
       "costBasis": 204.03196499999999,
       "openedAt": "2026-09-29",
-      "lastPrice": 208.91
+      "lastPrice": 208.73
     },
     {
       "ticker": "MSFT",
@@ -51,7 +51,7 @@
       "shares": 44.31489280964165,
       "costBasis": 225.6577725,
       "openedAt": "2026-09-29",
-      "lastPrice": 193.24
+      "lastPrice": 193.26
     },
     {
       "ticker": "TXN",
@@ -67,7 +67,7 @@
       "shares": 61.95569501782505,
       "costBasis": 161.40566249999998,
       "openedAt": "2026-09-29",
-      "lastPrice": 158.4
+      "lastPrice": 158.23
     },
     {
       "ticker": "ABBV",
@@ -75,7 +75,7 @@
       "shares": 28.48774381908274,
       "costBasis": 286.92339,
       "openedAt": "2026-11-03",
-      "lastPrice": 300.35
+      "lastPrice": 300.28
     },
     {
       "ticker": "LLY",
@@ -83,7 +83,7 @@
       "shares": 6.045694123129844,
       "costBasis": 1410.82506,
       "openedAt": "2026-11-24",
-      "lastPrice": 1410.12
+      "lastPrice": 1407.59
     }
   ],
   "lastRebalance": "2026-11-24",
@@ -280,8 +280,8 @@
     },
     {
       "date": "2026-11-24",
-      "equity": 85288.22,
-      "benchmark": 94041.43
+      "equity": 85250.54,
+      "benchmark": 94067.61
     }
   ],
   "trades": [
@@ -446,5 +446,5 @@
       "reason": "Topped up to equal weight (6.9% → 10%)"
     }
   ],
-  "updatedAt": "2026-11-24T21:06:49.232Z"
+  "updatedAt": "2026-11-24T22:20:40.451Z"
 }
