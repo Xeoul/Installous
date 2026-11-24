@@ -1,5 +1,21 @@
 [
   {
+    "date": "2026-11-24",
+    "at": "2026-11-24 16:06",
+    "short": "Level 1 - 1 contract",
+    "title": "Iron condor opened · level 1 of 3, 1×",
+    "message": "SPX 7190/7195p · 7210/7215c for $328.00 credit (SPX 7200.51).\nExpires Wed, Nov 25 at the close · win up to $328.00, lose up to $172.00.",
+    "link": "https://xeoul.github.io/Installous/options/"
+  },
+  {
+    "date": "2026-11-24",
+    "at": "2026-11-24 16:06",
+    "short": "Condor lost −$1,213",
+    "title": "Iron condor lost −$1,212.96 (−7.65%)",
+    "message": "SPX closed 7201.09 on Tue, Nov 24 · 6× 7220/7225p · 7290/7295c.\nAccount $14,643.96 · −$10,356.04 (−41.42%) total.",
+    "link": "https://xeoul.github.io/Installous/options/"
+  },
+  {
     "date": "2026-11-23",
     "at": "2026-11-23 16:06",
     "short": "Level 3 - 6 contracts",
@@ -462,20 +478,5 @@
     "title": "Iron condor opened · level 1 of 3, 1×",
     "message": "SPX 7675/7680p · 7745/7750c for $278.00 credit (SPX 7713.44).\nExpires Thu, Oct 15 at the close · win up to $278.00, lose up to $222.00.",
     "link": "https://xeoul.github.io/Installous/options/"
-  },
-  {
-    "date": "2026-10-14",
-    "at": "2026-10-14 15:27",
-    "short": "Condor opened · level 1 (1 contract)",
-    "title": "Iron condor opened · level 1 of 3, 1×",
-    "message": "SPY 762/766p · 771/775c for $184.00 credit (SPY 768.95).\nExpires Thu, Oct 15 at the close · win up to $184.00, lose up to $216.00.",
-    "link": "https://xeoul.github.io/Installous/options/"
-  },
-  {
-    "date": "2026-10-13",
-    "at": "2026-10-13 19:42",
-    "title": "AI Fund +$826.00 (+0.81%) today",
-    "message": "Value $102,630.55 · +$2,630.55 (+2.63%) since Sep 29.\nS&P 500 −0.01% today, +1.82% total.",
-    "link": "https://xeoul.github.io/Installous/fund/"
   }
 ]
