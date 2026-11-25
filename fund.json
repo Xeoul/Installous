@@ -27,7 +27,7 @@
       "shares": 40.82818809059552,
       "costBasis": 204.03196499999999,
       "openedAt": "2026-09-29",
-      "lastPrice": 211.015
+      "lastPrice": 210.95
     },
     {
       "ticker": "MSFT",
@@ -51,7 +51,7 @@
       "shares": 44.31489280964165,
       "costBasis": 225.6577725,
       "openedAt": "2026-09-29",
-      "lastPrice": 197.175
+      "lastPrice": 197.21
     },
     {
       "ticker": "TXN",
@@ -67,7 +67,7 @@
       "shares": 61.95569501782505,
       "costBasis": 161.40566249999998,
       "openedAt": "2026-09-29",
-      "lastPrice": 158.16
+      "lastPrice": 158.08
     },
     {
       "ticker": "ABBV",
@@ -75,7 +75,7 @@
       "shares": 28.48774381908274,
       "costBasis": 286.92339,
       "openedAt": "2026-11-03",
-      "lastPrice": 294.43
+      "lastPrice": 294.48
     },
     {
       "ticker": "LLY",
@@ -83,7 +83,7 @@
       "shares": 6.045694123129844,
       "costBasis": 1410.82506,
       "openedAt": "2026-11-24",
-      "lastPrice": 1392.27
+      "lastPrice": 1392.22
     }
   ],
   "lastRebalance": "2026-11-24",
@@ -285,8 +285,8 @@
     },
     {
       "date": "2026-11-25",
-      "equity": 85212.63,
-      "benchmark": 93809.79
+      "equity": 85207.69,
+      "benchmark": 93795.4
     }
   ],
   "trades": [
@@ -451,5 +451,5 @@
       "reason": "Topped up to equal weight (6.9% → 10%)"
     }
   ],
-  "updatedAt": "2026-11-25T21:06:53.226Z"
+  "updatedAt": "2026-11-25T21:37:15.339Z"
 }
