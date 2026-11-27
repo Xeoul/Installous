@@ -1,1 +1,1 @@
-{"ticker":"^GSPC","range":"1d","intraday":true,"points":[{"t":1795789800000,"close":7266.43017578125},{"t":1795789882000,"close":7265.35986328125}],"baseline":7182.78,"sessionStart":1795789800000,"sessionEnd":1795813200000}
+{"ticker":"^GSPC","range":"1d","intraday":true,"points":[{"t":1795789800000,"close":7247.64013671875},{"t":1795790100000,"close":7238.02001953125},{"t":1795790185000,"close":7243.77978515625}],"baseline":7182.78,"sessionStart":1795789800000,"sessionEnd":1795813200000}
