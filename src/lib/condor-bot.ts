@@ -35,6 +35,8 @@ export interface BotRules {
   openUntil: number;
   /** Skip the day if the condor pays less than this per share. */
   minCredit: number;
+  /** Skip the day when the options price the index's annual volatility above this (0.25 = a VIX of about 25). */
+  maxImpliedVol?: number;
   /** Don't hold a condor through a Fed decision, CPI or jobs report. */
   skipNews: boolean;
   /** Symbol for the underlying's price and closes when it differs from the options symbol (^GSPC for ^SPX). */
@@ -57,10 +59,13 @@ export const BOT_RULES: BotRules = {
   name: "SPX",
   strikeStep: 5,
   expiryDays: 1,
-  evenMoney: true,
+  // Short strikes at about 10 delta, 15-point wings: the index has to move about
+  // 1.3 standard deviations overnight to lose, so it wins about 9 days in 10
+  // (backtest: ~90% over 5 years, vs ~60% for the old even-money strikes and
+  // 26% live). A win collects ~$150-$250, a full loss costs ~$1,250, per condor.
+  evenMoney: false,
   shortDelta: 0.1,
-  // 5-point wings with ~$2.50 credit: about +$250 on a win, -$250 on a full loss, per condor.
-  width: 5,
+  width: 15,
   levels: [1, 3, 6],
   startCash: 25_000,
   feePerLeg: 0.04,
@@ -69,7 +74,9 @@ export const BOT_RULES: BotRules = {
   // trade until 4:15pm, so the next condor is sized from the real result.
   openFrom: 16 * 60 + 5,
   openUntil: 16 * 60 + 14,
-  minCredit: 1.5,
+  minCredit: 1,
+  // Sit out wild markets, where overnight moves blow through even 10-delta strikes.
+  maxImpliedVol: 0.25,
   skipNews: true,
 };
 
@@ -357,7 +364,12 @@ export function stepBot(prev: BotState | null, input: BotInput): { state: BotSta
       events.push(state.note);
     } else {
       const condor = condorFromChain(chain, rules);
-      if (!condor) {
+      const sd = impliedMove(chain);
+      const vol = sd ? sd * Math.sqrt(252) : null;
+      if (condor && rules.maxImpliedVol && vol && vol > rules.maxImpliedVol) {
+        state.note = `Skipped: options price ${(vol * 100).toFixed(0)}% volatility (limit ${(rules.maxImpliedVol * 100).toFixed(0)}%), too wild to sell a condor.`;
+        events.push(state.note);
+      } else if (!condor) {
         state.note = "Couldn't find quoted strikes for the condor.";
       } else if (condor.credit < rules.minCredit) {
         state.note = `Skipped: the condor paid only $${(condor.credit * MULTIPLIER).toFixed(0)} (minimum $${(rules.minCredit * MULTIPLIER).toFixed(0)}).`;

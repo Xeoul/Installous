@@ -31,7 +31,17 @@ function chain(expiry: string, spot = 500, days = 1): Chain {
 
 // The logic tests run on SPY-style rules ($1 strikes, $4 wings) with synthetic chains around 500;
 // the live SPX rules get their own test.
-const BOT_RULES: BotRules = { ...LIVE_RULES, ticker: "SPY", quoteTicker: undefined, name: undefined, strikeStep: 1, width: 4 };
+/** An SPX chain on its 5-point grid, priced like `chain` but a nickel either side of fair. */
+function spxChain(expiry: string, spot: number): Chain {
+  const strikes = Array.from({ length: 121 }, (_, i) => Math.round(spot / 5) * 5 - 300 + i * 5);
+  const leg = (kind: "put" | "call", k: number) => {
+    const fair = bsPrice(kind, spot, k, 1 / 252, 0.15);
+    return { strike: k, bid: Math.max(0, fair - 0.05), ask: fair + 0.05 };
+  };
+  return { expiry, spot, marketOpen: true, puts: strikes.map((k) => leg("put", k)), calls: strikes.map((k) => leg("call", k)) };
+}
+
+const BOT_RULES: BotRules = { ...LIVE_RULES, ticker: "SPY", quoteTicker: undefined, name: undefined, strikeStep: 1, width: 4, evenMoney: true, minCredit: 1.5 };
 const start = (equity = BOT_RULES.startCash): BotState => ({ ...newBotState(at("2026-10-12", "09:00"), BOT_RULES), equity });
 const step = (s: BotState, date: string, time: string, c: Chain | null, closes: Record<string, number> = {}) =>
   stepBot(s, { now: at(date, time), chain: c, closes }).state;
@@ -68,20 +78,19 @@ describe("condorFromChain", () => {
     expect(s.open).toBeNull();
   });
 
-  it("picks SPX strikes on its 5-point grid, about half the wing width", () => {
+  it("picks SPX strikes on its 5-point grid at about 10 delta, with 15-point wings", () => {
     const spot = 7703.6;
     const t = 1 / 252;
-    const strikes = Array.from({ length: 41 }, (_, i) => 7600 + i * 5);
-    const leg = (kind: "put" | "call", k: number) => {
-      const fair = bsPrice(kind, spot, k, t, 0.15);
-      return { strike: k, bid: Math.max(0, fair - 0.05), ask: fair + 0.05 };
-    };
-    const c = condorFromChain({ expiry: "2026-10-15", spot, marketOpen: true, puts: strikes.map((k) => leg("put", k)), calls: strikes.map((k) => leg("call", k)) }, LIVE_RULES)!;
+    const c = condorFromChain(spxChain("2026-10-15", spot), LIVE_RULES)!;
     for (const k of [c.putLong, c.putShort, c.callShort, c.callLong]) expect(k % 5).toBe(0);
-    expect(c.putShort - c.putLong).toBe(5);
-    expect(c.callLong - c.callShort).toBe(5);
-    expect(c.credit).toBeGreaterThan(1.5);
-    expect(c.credit).toBeLessThan(3.5);
+    expect(c.putShort - c.putLong).toBe(15);
+    expect(c.callLong - c.callShort).toBe(15);
+    // A 1.3 standard deviation move (about 95 points at 15% vol) either way to reach a short strike.
+    const sd = spot * 0.15 * Math.sqrt(t);
+    expect(spot - c.putShort).toBeGreaterThan(1.2 * sd);
+    expect(c.callShort - spot).toBeGreaterThan(1.2 * sd);
+    expect(c.credit).toBeGreaterThan(LIVE_RULES.minCredit);
+    expect(c.credit).toBeLessThan(4);
   });
 
   it("can still pick strikes by delta", () => {
@@ -291,6 +300,16 @@ describe("stepBot", () => {
     expect(step({ ...start(), rules: { ...BOT_RULES, skipNews: false } }, "2026-10-27", "16:06", chain("2026-10-28")).open).not.toBeNull();
   });
 
+  it("skips a day when the options price the market as too wild", () => {
+    const wild = { ...chain("2026-10-14"), spot: 500 };
+    const calm = step({ ...start(), rules: { ...BOT_RULES, maxImpliedVol: 0.2 } }, "2026-10-13", "16:06", wild);
+    expect(calm.open).not.toBeNull(); // 15% vol is under the limit
+    const s = step({ ...start(), rules: { ...BOT_RULES, maxImpliedVol: 0.12 } }, "2026-10-13", "16:06", wild);
+    expect(s.open).toBeNull();
+    expect(s.note).toMatch(/15% volatility/);
+    expect(s.level).toBe(0);
+  });
+
   it("skips a day when the condor pays under the minimum credit", () => {
     const s = step({ ...start(), rules: { ...BOT_RULES, minCredit: 3 } }, "2026-10-13", "16:06", chain("2026-10-14"));
     expect(s.open).toBeNull();
@@ -306,7 +325,7 @@ describe("stepBot", () => {
 
   it("moves an older saved account onto the current rules", () => {
     const v2 = { ...start(), version: 2, rules: { ...BOT_RULES, levels: undefined, contracts: 1 }, level: undefined, settling: undefined } as unknown as BotState;
-    const s = step(v2, "2026-10-13", "16:06", chain("2026-10-14"));
+    const s = step(v2, "2026-10-13", "16:06", spxChain("2026-10-14", 7700));
     expect(s.version).toBe(3);
     expect(s.rules).toEqual(LIVE_RULES);
     expect(s.open).toMatchObject({ level: 0, expiry: "2026-10-14" });
