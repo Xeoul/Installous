@@ -172,9 +172,12 @@ export function CondorBot() {
               Right after each market day&apos;s close (1:00pm PT) it settles the condor expiring today as a win or a loss, sets the next
               size from the ladder ({levels.join(", ")} contracts: a loss moves up a level, any win goes back to level 1, and a loss on
               level {levels.length} starts over), then sells a {name} iron condor expiring the next trading day with ${r.width} wings
-              {r.evenMoney ? `, short strikes placed so it collects about $${(r.width * 50).toFixed(0)}` : ""}. It skips a day if the
-              condor pays under ${((r.minCredit ?? 0) * 100).toFixed(0)}, or if a Fed decision, CPI or jobs report lands while it would be
-              open. Fills use the quoted mid less ${r.slippage.toFixed(2)} per spread (Yahoo Finance quotes, which can be delayed), and
+              {r.evenMoney
+                ? `, short strikes placed so it collects about ${(r.width * 50).toFixed(0)}`
+                : `, short strikes at about ${Math.round(r.shortDelta * 100)} delta, far enough out that it wins most days`}
+              . It skips a day if the condor pays under ${((r.minCredit ?? 0) * 100).toFixed(0)}
+              {r.maxImpliedVol ? `, if the options price the market above ${Math.round(r.maxImpliedVol * 100)}% volatility` : ""}, or if a
+              Fed decision, CPI or jobs report lands while it would be open. Fills use the quoted mid less ${r.slippage.toFixed(2)} per spread (Yahoo Finance quotes, which can be delayed), and
               each condor settles at the 1:00pm PT close. Starts with {usd0(r.startCash)}. Paper money only.
             </p>
           </details>
