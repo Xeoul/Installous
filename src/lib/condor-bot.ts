@@ -145,6 +145,12 @@ export interface BotState {
   history: { date: string; equity: number }[];
   /** Why the bot didn't trade on its last attempt, if it didn't. */
   note: string | null;
+  /**
+   * Set when the history was replayed under newer rules (prices estimated from
+   * the VIX, since past option quotes aren't kept): trades through `through`
+   * are simulated, and what the live record had reached is kept for reference.
+   */
+  resimulated?: { through: string; liveEquity: number; liveTrades: number };
   updatedAt: string;
 }
 
