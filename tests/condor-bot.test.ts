@@ -3,6 +3,7 @@ import {
   BOT_RULES as LIVE_RULES,
   condorFromChain,
   impliedMove,
+  moveOn,
   newBotState,
   nextLevel,
   nyMinutes,
@@ -41,7 +42,7 @@ function spxChain(expiry: string, spot: number): Chain {
   return { expiry, spot, marketOpen: true, puts: strikes.map((k) => leg("put", k)), calls: strikes.map((k) => leg("call", k)) };
 }
 
-const BOT_RULES: BotRules = { ...LIVE_RULES, ticker: "SPY", quoteTicker: undefined, name: undefined, strikeStep: 1, width: 4, evenMoney: true, minCredit: 1.5 };
+const BOT_RULES: BotRules = { ...LIVE_RULES, ticker: "SPY", quoteTicker: undefined, name: undefined, strikeStep: 1, width: 4, evenMoney: true, minCredit: 1.5, maxDayMove: undefined };
 const start = (equity = BOT_RULES.startCash): BotState => ({ ...newBotState(at("2026-10-12", "09:00"), BOT_RULES), equity });
 const step = (s: BotState, date: string, time: string, c: Chain | null, closes: Record<string, number> = {}) =>
   stepBot(s, { now: at(date, time), chain: c, closes }).state;
@@ -78,17 +79,17 @@ describe("condorFromChain", () => {
     expect(s.open).toBeNull();
   });
 
-  it("picks SPX strikes on its 5-point grid at about 10 delta, with 15-point wings", () => {
+  it("picks SPX strikes on its 5-point grid at about 7 delta, with 15-point wings", () => {
     const spot = 7703.6;
     const t = 1 / 252;
     const c = condorFromChain(spxChain("2026-10-15", spot), LIVE_RULES)!;
     for (const k of [c.putLong, c.putShort, c.callShort, c.callLong]) expect(k % 5).toBe(0);
     expect(c.putShort - c.putLong).toBe(15);
     expect(c.callLong - c.callShort).toBe(15);
-    // A 1.3 standard deviation move (about 95 points at 15% vol) either way to reach a short strike.
+    // About a 1.5 standard deviation move (about 110 points at 15% vol) either way to reach a short strike.
     const sd = spot * 0.15 * Math.sqrt(t);
-    expect(spot - c.putShort).toBeGreaterThan(1.2 * sd);
-    expect(c.callShort - spot).toBeGreaterThan(1.2 * sd);
+    expect(spot - c.putShort).toBeGreaterThan(1.4 * sd);
+    expect(c.callShort - spot).toBeGreaterThan(1.4 * sd);
     expect(c.credit).toBeGreaterThan(LIVE_RULES.minCredit);
     expect(c.credit).toBeLessThan(4);
   });
@@ -308,6 +309,17 @@ describe("stepBot", () => {
     expect(s.open).toBeNull();
     expect(s.note).toMatch(/15% volatility/);
     expect(s.level).toBe(0);
+  });
+
+  it("skips the day after a big move in the index", () => {
+    const rules = { ...BOT_RULES, maxDayMove: 0.015 };
+    const big = step({ ...start(), rules }, "2026-10-13", "16:06", chain("2026-10-14"), { "2026-10-12": 500, "2026-10-13": 490 });
+    expect(big.open).toBeNull();
+    expect(big.note).toMatch(/moved -2\.0% today/);
+    const quiet = step({ ...start(), rules }, "2026-10-13", "16:06", chain("2026-10-14"), { "2026-10-12": 500, "2026-10-13": 496 });
+    expect(quiet.open).not.toBeNull();
+    expect(moveOn({ "2026-10-09": 100, "2026-10-13": 101 }, "2026-10-13")).toBeCloseTo(0.01);
+    expect(moveOn({ "2026-10-13": 101 }, "2026-10-13")).toBeNull();
   });
 
   it("skips a day when the condor pays under the minimum credit", () => {

@@ -176,7 +176,8 @@ export function CondorBot() {
                 ? `, short strikes placed so it collects about ${(r.width * 50).toFixed(0)}`
                 : `, short strikes at about ${Math.round(r.shortDelta * 100)} delta, far enough out that it wins most days`}
               . It skips a day if the condor pays under ${((r.minCredit ?? 0) * 100).toFixed(0)}
-              {r.maxImpliedVol ? `, if the options price the market above ${Math.round(r.maxImpliedVol * 100)}% volatility` : ""}, or if a
+              {r.maxImpliedVol ? `, if the options price the market above ${Math.round(r.maxImpliedVol * 100)}% volatility` : ""}
+              {r.maxDayMove ? `, the day after a move of more than ${(r.maxDayMove * 100).toFixed(1)}%` : ""}, or if a
               Fed decision, CPI or jobs report lands while it would be open. Fills use the quoted mid less ${r.slippage.toFixed(2)} per spread (Yahoo Finance quotes, which can be delayed), and
               each condor settles at the 1:00pm PT close. Starts with {usd0(r.startCash)}. Paper money only.
             </p>
