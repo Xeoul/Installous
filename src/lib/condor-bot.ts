@@ -37,6 +37,8 @@ export interface BotRules {
   minCredit: number;
   /** Skip the day when the options price the index's annual volatility above this (0.25 = a VIX of about 25). */
   maxImpliedVol?: number;
+  /** Skip the day after the index closes up or down more than this share (0.015 = 1.5%): big days tend to follow big days. */
+  maxDayMove?: number;
   /** Don't hold a condor through a Fed decision, CPI or jobs report. */
   skipNews: boolean;
   /** Symbol for the underlying's price and closes when it differs from the options symbol (^GSPC for ^SPX). */
@@ -59,12 +61,12 @@ export const BOT_RULES: BotRules = {
   name: "SPX",
   strikeStep: 5,
   expiryDays: 1,
-  // Short strikes at about 10 delta, 15-point wings: the index has to move about
-  // 1.3 standard deviations overnight to lose, so it wins about 9 days in 10
-  // (backtest: ~90% over 5 years, vs ~60% for the old even-money strikes and
-  // 26% live). A win collects ~$150-$250, a full loss costs ~$1,250, per condor.
+  // Short strikes at about 7 delta, 15-point wings: the index has to move about
+  // 1.5 standard deviations overnight to lose. Backtest over 10 years (with the
+  // skips below): ~96% of trades win, vs ~60% for the old even-money strikes
+  // and 26% live. A win collects ~$50-$175, a full loss costs ~$1,350, per condor.
   evenMoney: false,
-  shortDelta: 0.1,
+  shortDelta: 0.07,
   width: 15,
   levels: [1, 3, 6],
   startCash: 25_000,
@@ -74,9 +76,10 @@ export const BOT_RULES: BotRules = {
   // trade until 4:15pm, so the next condor is sized from the real result.
   openFrom: 16 * 60 + 5,
   openUntil: 16 * 60 + 14,
-  minCredit: 1,
-  // Sit out wild markets, where overnight moves blow through even 10-delta strikes.
+  minCredit: 0.5,
+  // Sit out wild markets, where overnight moves blow through even far-out strikes.
   maxImpliedVol: 0.25,
+  maxDayMove: 0.015,
   skipNews: true,
 };
 
@@ -259,6 +262,12 @@ export function condorFromChain(chain: Chain, rules: BotRules) {
   };
 }
 
+/** The index's change from the previous close to `date`'s close, or null without both closes. */
+export function moveOn(closes: Record<string, number>, date: string): number | null {
+  const prev = Object.keys(closes).filter((d) => d < date).sort().at(-1);
+  return prev && closes[date] !== undefined ? closes[date] / closes[prev] - 1 : null;
+}
+
 export function newBotState(now: Date, rules: BotRules = BOT_RULES): BotState {
   return {
     version: 3,
@@ -366,7 +375,11 @@ export function stepBot(prev: BotState | null, input: BotInput): { state: BotSta
       const condor = condorFromChain(chain, rules);
       const sd = impliedMove(chain);
       const vol = sd ? sd * Math.sqrt(252) : null;
-      if (condor && rules.maxImpliedVol && vol && vol > rules.maxImpliedVol) {
+      const dayMove = moveOn(input.closes, today);
+      if (condor && rules.maxDayMove && dayMove !== null && Math.abs(dayMove) > rules.maxDayMove) {
+        state.note = `Skipped: ${botName(rules)} moved ${(dayMove * 100).toFixed(1)}% today (limit ${(rules.maxDayMove * 100).toFixed(1)}%), too wild to sell a condor.`;
+        events.push(state.note);
+      } else if (condor && rules.maxImpliedVol && vol && vol > rules.maxImpliedVol) {
         state.note = `Skipped: options price ${(vol * 100).toFixed(0)}% volatility (limit ${(rules.maxImpliedVol * 100).toFixed(0)}%), too wild to sell a condor.`;
         events.push(state.note);
       } else if (!condor) {
