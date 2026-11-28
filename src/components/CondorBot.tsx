@@ -147,6 +147,12 @@ export function CondorBot() {
           {showHistory && <TradeHistory id="condor-history" bot={bot} positions={positions} name={name} />}
 
           {bot.note && !bot.open && <p className="mt-3 text-sm text-text-2">{bot.note}</p>}
+          {bot.resimulated && (
+            <p className="mt-3 text-xs text-muted">
+              Trades through {fmtDate(bot.resimulated.through)} are replayed under the current rules, with option prices estimated from
+              the VIX. The original rules&apos; {bot.resimulated.liveTrades} live trades had left {usd0(bot.resimulated.liveEquity)}.
+            </p>
+          )}
 
           {r.skipNews !== false && skips.length > 0 && (
             <p className="mt-2 text-xs text-muted">
