@@ -9,9 +9,9 @@ export default function OptionsLab() {
           <span className="rounded-md border border-border bg-surface-2 px-2 py-0.5 text-xs font-medium text-text-2">Paper money</span>
         </div>
         <p className="mt-1 max-w-5xl text-text-2">
-          A bot that sells an SPX (S&P 500 index) iron condor every market day with martingale sizing: a loss moves up a level (1, 3, 6
-          contracts), any win goes back to level 1. Right after each close it settles the day&apos;s condor and opens the next one from that result
-          at real quotes, and you can watch the order and the open position live here.
+          A bot that sells a far-out SPX (S&P 500 index) iron condor most market days, sized so a full loss costs 20% of the account
+          (10% while it&apos;s 25% or more below its high), so wins compound. Right after each close it settles the day&apos;s condor and opens
+          the next one at real quotes, and you can watch the order and the open position live here.
         </p>
       </div>
 

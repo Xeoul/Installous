@@ -4,6 +4,7 @@ import {
   condorFromChain,
   impliedMove,
   moveOn,
+  riskNow,
   newBotState,
   nextLevel,
   nyMinutes,
@@ -42,7 +43,7 @@ function spxChain(expiry: string, spot: number): Chain {
   return { expiry, spot, marketOpen: true, puts: strikes.map((k) => leg("put", k)), calls: strikes.map((k) => leg("call", k)) };
 }
 
-const BOT_RULES: BotRules = { ...LIVE_RULES, ticker: "SPY", quoteTicker: undefined, name: undefined, strikeStep: 1, width: 4, evenMoney: true, minCredit: 1.5, maxDayMove: undefined };
+const BOT_RULES: BotRules = { ...LIVE_RULES, ticker: "SPY", quoteTicker: undefined, name: undefined, strikeStep: 1, width: 4, evenMoney: true, minCredit: 1.5, maxDayMove: undefined, levels: [1, 3, 6], riskPct: undefined };
 const start = (equity = BOT_RULES.startCash): BotState => ({ ...newBotState(at("2026-10-12", "09:00"), BOT_RULES), equity });
 const step = (s: BotState, date: string, time: string, c: Chain | null, closes: Record<string, number> = {}) =>
   stepBot(s, { now: at(date, time), chain: c, closes }).state;
@@ -98,6 +99,32 @@ describe("condorFromChain", () => {
     const c = condorFromChain(chain("2026-10-14"), { ...BOT_RULES, evenMoney: false, shortDelta: 0.1, width: 2 })!;
     expect(c.credit).toBeLessThan(1);
     expect(c.callShort - 500).toBeGreaterThan(5);
+  });
+});
+
+describe("risk sizing", () => {
+  const rules = { ...BOT_RULES, levels: [1], riskPct: 0.2, brakeDrawdown: 0.25, brakeRiskPct: 0.1 };
+  it("sizes each condor so a full loss costs 20% of the account", () => {
+    const s = step({ ...start(100_000), rules }, "2026-10-13", "16:06", chain("2026-10-14"));
+    const t = s.open!;
+    const maxLoss = (Math.max(t.putShort - t.putLong, t.callLong - t.callShort) - t.credit) * 100 + 4 * rules.feePerLeg;
+    expect(t.riskPct).toBe(0.2);
+    expect(t.contracts).toBe(Math.floor((100_000 * 0.2) / maxLoss));
+    expect(t.contracts * maxLoss).toBeLessThanOrEqual(20_000);
+  });
+
+  it("risks 10% once the account is 25% below its high, and 20% again after it recovers", () => {
+    const history = [{ date: "2026-10-01", equity: 120_000 }];
+    expect(riskNow({ rules, equity: 95_000, history })).toBe(0.2);
+    expect(riskNow({ rules, equity: 90_000, history })).toBe(0.1);
+    expect(riskNow({ rules, equity: 121_000, history })).toBe(0.2);
+    expect(riskNow({ rules: BOT_RULES, equity: 90_000, history })).toBeNull();
+    const braked = step({ ...start(90_000), history, rules }, "2026-10-13", "16:06", chain("2026-10-14"));
+    expect(braked.open!.riskPct).toBe(0.1);
+  });
+
+  it("the live rules use risk sizing with the brake and no ladder", () => {
+    expect(LIVE_RULES).toMatchObject({ riskPct: 0.2, brakeDrawdown: 0.25, brakeRiskPct: 0.1, levels: [1] });
   });
 });
 

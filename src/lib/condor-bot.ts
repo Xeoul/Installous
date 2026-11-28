@@ -26,6 +26,14 @@ export interface BotRules {
   width: number;
   /** Contracts at each level; a loss on the last level starts over at the first. */
   levels: number[];
+  /**
+   * Size each condor so a full loss costs this share of the account (0.2 = 20%),
+   * instead of the level ladder; wins compound into bigger trades.
+   */
+  riskPct?: number;
+  /** Once the account is this far below its high (0.25 = 25%), risk only `brakeRiskPct` until it recovers. */
+  brakeDrawdown?: number;
+  brakeRiskPct?: number;
   startCash: number;
   feePerLeg: number;
   /** Given up per two-leg spread vs the mid price, in dollars per share. */
@@ -61,6 +69,11 @@ export const BOT_RULES: BotRules = {
   name: "SPX",
   strikeStep: 5,
   expiryDays: 1,
+  // Each condor risks 20% of the account (10% while it's 25% or more below its
+  // high), so the account compounds: no martingale ladder.
+  riskPct: 0.2,
+  brakeDrawdown: 0.25,
+  brakeRiskPct: 0.1,
   // Short strikes at about 7 delta, 15-point wings: the index has to move about
   // 1.5 standard deviations overnight to lose. Backtest over 10 years (with the
   // skips below): ~96% of trades win, vs ~60% for the old even-money strikes
@@ -68,7 +81,7 @@ export const BOT_RULES: BotRules = {
   evenMoney: false,
   shortDelta: 0.07,
   width: 15,
-  levels: [1, 3, 6],
+  levels: [1],
   startCash: 25_000,
   feePerLeg: 0.04,
   slippage: 0.01,
@@ -115,6 +128,8 @@ export interface BotTrade {
   contracts: number;
   /** Level index (0 = level 1) this trade was sized at. */
   level: number;
+  /** Share of the account this trade risked, when sized by risk instead of the ladder. */
+  riskPct?: number;
   /** Losses in a row before this trade (kept for older trades' display). */
   streak?: number;
   capped: boolean;
@@ -292,6 +307,20 @@ export function newBotState(now: Date, rules: BotRules = BOT_RULES): BotState {
   };
 }
 
+/** The account's high so far. */
+export const peakEquity = (state: Pick<BotState, "equity" | "history">) => Math.max(state.equity, ...state.history.map((h) => h.equity));
+
+/** The share of the account the next condor risks (null when sized by the ladder): less while the brake is on. */
+export function riskNow(state: Pick<BotState, "equity" | "history" | "rules">): number | null {
+  const r = state.rules;
+  if (!r.riskPct) return null;
+  const braked = r.brakeDrawdown !== undefined && r.brakeRiskPct !== undefined && state.equity <= peakEquity(state) * (1 - r.brakeDrawdown);
+  return braked ? r.brakeRiskPct! : r.riskPct;
+}
+
+/** How a trade was sized, in words: "20% risk" or "level 2". */
+export const sizeLabel = (t: Pick<BotTrade, "riskPct" | "level">) => (t.riskPct ? `${Math.round(t.riskPct * 100)}% risk` : `level ${(t.level ?? 0) + 1}`);
+
 /** The level after a result: any win goes back to level 1, a loss moves up (past the top, start over). */
 export const nextLevel = (level: number, pnl: number, levels: number[]) => (pnl >= 0 || level + 1 >= levels.length ? 0 : level + 1);
 
@@ -394,8 +423,9 @@ export function stepBot(prev: BotState | null, input: BotInput): { state: BotSta
         state.note = `Skipped: the condor paid only $${(condor.credit * MULTIPLIER).toFixed(0)} (minimum $${(rules.minCredit * MULTIPLIER).toFixed(0)}).`;
         events.push(state.note);
       } else {
-        const wanted = rules.levels[state.level] ?? rules.levels[0];
         const margin = maxLossPerShare(condor) * MULTIPLIER + fees(rules, 1);
+        const risk = riskNow(state);
+        const wanted = risk ? Math.max(1, Math.floor((state.equity * risk) / margin)) : (rules.levels[state.level] ?? rules.levels[0]);
         // Today's condor has already settled into the account.
         const affordable = margin > 0 ? Math.floor(state.equity / margin) : 0;
         if (affordable < 1) {
@@ -414,10 +444,11 @@ export function stepBot(prev: BotState | null, input: BotInput): { state: BotSta
             level: state.level,
             streak: state.streak,
             capped: contracts < wanted,
+            ...(risk ? { riskPct: risk } : {}),
           };
           state.note = null;
           events.push(
-            `Opened ${today} (expires ${chain.expiry}) at level ${state.level + 1}: ${condor.putLong}/${condor.putShort}p ${condor.callShort}/${condor.callLong}c for $${(condor.credit * MULTIPLIER).toFixed(0)} × ${contracts}`,
+            `Opened ${today} (expires ${chain.expiry}) at ${risk ? `${Math.round(risk * 100)}% risk` : `level ${state.level + 1}`}: ${condor.putLong}/${condor.putShort}p ${condor.callShort}/${condor.callLong}c for $${(condor.credit * MULTIPLIER).toFixed(0)} × ${contracts}`,
           );
         }
       }
