@@ -7,13 +7,14 @@
     "name": "SPX",
     "strikeStep": 5,
     "expiryDays": 1,
+    "riskPct": 0.2,
+    "brakeDrawdown": 0.25,
+    "brakeRiskPct": 0.1,
     "evenMoney": false,
     "shortDelta": 0.07,
     "width": 15,
     "levels": [
-      1,
-      3,
-      6
+      1
     ],
     "startCash": 25000,
     "feePerLeg": 0.04,
@@ -25,7 +26,7 @@
     "maxDayMove": 0.015,
     "skipNews": true
   },
-  "equity": 26372.38,
+  "equity": 26520.45,
   "streak": 0,
   "bust": null,
   "open": null,
@@ -41,12 +42,13 @@
       "callLong": 7510,
       "credit": 1.7422,
       "contracts": 3,
-      "level": 1,
+      "level": 0,
       "streak": 1,
       "capped": false,
+      "riskPct": 0.2,
       "close": 7175.83,
       "pnl": 522.18,
-      "equityAfter": 26372.38
+      "equityAfter": 26520.45
     },
     {
       "date": "2026-11-13",
@@ -58,13 +60,14 @@
       "callShort": 7700,
       "callLong": 7715,
       "credit": 1.7072,
-      "contracts": 1,
+      "contracts": 4,
       "level": 0,
       "streak": 0,
       "capped": false,
+      "riskPct": 0.2,
       "close": 7416.59,
-      "pnl": -670.44,
-      "equityAfter": 25850.2
+      "pnl": -2681.76,
+      "equityAfter": 25998.27
     },
     {
       "date": "2026-11-12",
@@ -76,13 +79,14 @@
       "callShort": 7730,
       "callLong": 7745,
       "credit": 1.654,
-      "contracts": 1,
+      "contracts": 4,
       "level": 0,
       "streak": 0,
       "capped": false,
+      "riskPct": 0.2,
       "close": 7561.67,
-      "pnl": 165.24,
-      "equityAfter": 26520.64
+      "pnl": 660.96,
+      "equityAfter": 28680.03
     },
     {
       "date": "2026-11-11",
@@ -94,13 +98,14 @@
       "callShort": 7745,
       "callLong": 7760,
       "credit": 1.7045,
-      "contracts": 1,
+      "contracts": 4,
       "level": 0,
       "streak": 0,
       "capped": false,
+      "riskPct": 0.2,
       "close": 7592.4,
-      "pnl": 170.29,
-      "equityAfter": 26355.4
+      "pnl": 681.16,
+      "equityAfter": 28019.07
     },
     {
       "date": "2026-11-10",
@@ -112,13 +117,14 @@
       "callShort": 7660,
       "callLong": 7675,
       "credit": 1.723,
-      "contracts": 1,
+      "contracts": 4,
       "level": 0,
       "streak": 0,
       "capped": false,
+      "riskPct": 0.2,
       "close": 7619.38,
-      "pnl": 172.14,
-      "equityAfter": 26185.11
+      "pnl": 688.56,
+      "equityAfter": 27337.91
     },
     {
       "date": "2026-11-03",
@@ -130,13 +136,14 @@
       "callShort": 7720,
       "callLong": 7735,
       "credit": 1.6767,
-      "contracts": 1,
+      "contracts": 3,
       "level": 0,
       "streak": 0,
       "capped": false,
+      "riskPct": 0.2,
       "close": 7688.62,
-      "pnl": 167.51,
-      "equityAfter": 26012.97
+      "pnl": 502.53,
+      "equityAfter": 26649.35
     },
     {
       "date": "2026-11-02",
@@ -149,12 +156,13 @@
       "callLong": 7710,
       "credit": 1.7423,
       "contracts": 3,
-      "level": 1,
+      "level": 0,
       "streak": 1,
       "capped": false,
+      "riskPct": 0.2,
       "close": 7568.92,
       "pnl": 522.21,
-      "equityAfter": 25845.46
+      "equityAfter": 26146.82
     },
     {
       "date": "2026-10-29",
@@ -166,13 +174,14 @@
       "callShort": 7850,
       "callLong": 7865,
       "credit": 1.5862,
-      "contracts": 1,
+      "contracts": 4,
       "level": 0,
       "streak": 0,
       "capped": false,
+      "riskPct": 0.2,
       "close": 7580.07,
-      "pnl": -1334.54,
-      "equityAfter": 25323.25
+      "pnl": -5338.16,
+      "equityAfter": 25624.61
     },
     {
       "date": "2026-10-28",
@@ -184,13 +193,14 @@
       "callShort": 7870,
       "callLong": 7885,
       "credit": 1.6107,
-      "contracts": 1,
+      "contracts": 4,
       "level": 0,
       "streak": 0,
       "capped": false,
+      "riskPct": 0.2,
       "close": 7720.39,
-      "pnl": 160.91,
-      "equityAfter": 26657.79
+      "pnl": 643.64,
+      "equityAfter": 30962.77
     },
     {
       "date": "2026-10-26",
@@ -202,13 +212,14 @@
       "callShort": 7810,
       "callLong": 7825,
       "credit": 1.718,
-      "contracts": 1,
+      "contracts": 4,
       "level": 0,
       "streak": 0,
       "capped": false,
+      "riskPct": 0.2,
       "close": 7722.6,
-      "pnl": 171.64,
-      "equityAfter": 26496.88
+      "pnl": 686.56,
+      "equityAfter": 30319.13
     },
     {
       "date": "2026-10-23",
@@ -220,13 +231,14 @@
       "callShort": 7765,
       "callLong": 7780,
       "credit": 1.7007,
-      "contracts": 1,
+      "contracts": 4,
       "level": 0,
       "streak": 0,
       "capped": false,
+      "riskPct": 0.2,
       "close": 7676.77,
-      "pnl": 169.91,
-      "equityAfter": 26325.24
+      "pnl": 679.64,
+      "equityAfter": 29632.57
     },
     {
       "date": "2026-10-22",
@@ -238,13 +250,14 @@
       "callShort": 7805,
       "callLong": 7820,
       "credit": 1.6116,
-      "contracts": 1,
+      "contracts": 4,
       "level": 0,
       "streak": 0,
       "capped": false,
+      "riskPct": 0.2,
       "close": 7623.68,
-      "pnl": 161,
-      "equityAfter": 26155.33
+      "pnl": 644,
+      "equityAfter": 28952.93
     },
     {
       "date": "2026-10-21",
@@ -256,13 +269,14 @@
       "callShort": 7880,
       "callLong": 7895,
       "credit": 1.6486,
-      "contracts": 1,
+      "contracts": 4,
       "level": 0,
       "streak": 0,
       "capped": false,
+      "riskPct": 0.2,
       "close": 7663.43,
-      "pnl": 164.7,
-      "equityAfter": 25994.33
+      "pnl": 658.8,
+      "equityAfter": 28308.93
     },
     {
       "date": "2026-10-20",
@@ -274,13 +288,14 @@
       "callShort": 7840,
       "callLong": 7855,
       "credit": 1.614,
-      "contracts": 1,
+      "contracts": 4,
       "level": 0,
       "streak": 0,
       "capped": false,
+      "riskPct": 0.2,
       "close": 7757.17,
-      "pnl": 161.24,
-      "equityAfter": 25829.63
+      "pnl": 644.96,
+      "equityAfter": 27650.13
     },
     {
       "date": "2026-10-19",
@@ -292,13 +307,14 @@
       "callShort": 7825,
       "callLong": 7840,
       "credit": 1.7432,
-      "contracts": 1,
+      "contracts": 3,
       "level": 0,
       "streak": 0,
       "capped": false,
+      "riskPct": 0.2,
       "close": 7712.57,
-      "pnl": 174.16,
-      "equityAfter": 25668.39
+      "pnl": 522.48,
+      "equityAfter": 27005.17
     },
     {
       "date": "2026-10-16",
@@ -310,13 +326,14 @@
       "callShort": 7805,
       "callLong": 7820,
       "credit": 1.6932,
-      "contracts": 1,
+      "contracts": 3,
       "level": 0,
       "streak": 0,
       "capped": false,
+      "riskPct": 0.2,
       "close": 7690.73,
-      "pnl": 169.16,
-      "equityAfter": 25494.23
+      "pnl": 507.48,
+      "equityAfter": 26482.69
     },
     {
       "date": "2026-10-15",
@@ -328,13 +345,14 @@
       "callShort": 7865,
       "callLong": 7880,
       "credit": 1.6727,
-      "contracts": 1,
+      "contracts": 3,
       "level": 0,
       "streak": 0,
       "capped": false,
+      "riskPct": 0.2,
       "close": 7659.44,
-      "pnl": 167.11,
-      "equityAfter": 25325.07
+      "pnl": 501.33,
+      "equityAfter": 25975.21
     },
     {
       "date": "2026-10-14",
@@ -346,13 +364,14 @@
       "callShort": 7845,
       "callLong": 7860,
       "credit": 1.5812,
-      "contracts": 1,
+      "contracts": 3,
       "level": 0,
       "streak": 0,
       "capped": false,
+      "riskPct": 0.2,
       "close": 7744.06,
-      "pnl": 157.96,
-      "equityAfter": 25157.96
+      "pnl": 473.88,
+      "equityAfter": 25473.88
     }
   ],
   "history": [
@@ -362,79 +381,79 @@
     },
     {
       "date": "2026-10-15",
-      "equity": 25157.96
+      "equity": 25473.88
     },
     {
       "date": "2026-10-16",
-      "equity": 25325.07
+      "equity": 25975.21
     },
     {
       "date": "2026-10-19",
-      "equity": 25494.23
+      "equity": 26482.69
     },
     {
       "date": "2026-10-20",
-      "equity": 25668.39
+      "equity": 27005.17
     },
     {
       "date": "2026-10-21",
-      "equity": 25829.63
+      "equity": 27650.13
     },
     {
       "date": "2026-10-22",
-      "equity": 25994.33
+      "equity": 28308.93
     },
     {
       "date": "2026-10-23",
-      "equity": 26155.33
+      "equity": 28952.93
     },
     {
       "date": "2026-10-26",
-      "equity": 26325.24
+      "equity": 29632.57
     },
     {
       "date": "2026-10-27",
-      "equity": 26496.88
+      "equity": 30319.13
     },
     {
       "date": "2026-10-29",
-      "equity": 26657.79
+      "equity": 30962.77
     },
     {
       "date": "2026-10-30",
-      "equity": 25323.25
+      "equity": 25624.61
     },
     {
       "date": "2026-11-03",
-      "equity": 25845.46
+      "equity": 26146.82
     },
     {
       "date": "2026-11-04",
-      "equity": 26012.97
+      "equity": 26649.35
     },
     {
       "date": "2026-11-11",
-      "equity": 26185.11
+      "equity": 27337.91
     },
     {
       "date": "2026-11-12",
-      "equity": 26355.4
+      "equity": 28019.07
     },
     {
       "date": "2026-11-13",
-      "equity": 26520.64
+      "equity": 28680.03
     },
     {
       "date": "2026-11-16",
-      "equity": 25850.2
+      "equity": 25998.27
     },
     {
       "date": "2026-11-19",
-      "equity": 26372.38
+      "equity": 26520.45
     }
   ],
   "note": null,
-  "updatedAt": "2026-11-28T20:15:04.234Z",
+  "updatedAt": "2026-11-28T20:49:14.173Z",
   "level": 0,
   "settling": null,
   "resimulated": {
