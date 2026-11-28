@@ -4,7 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { RollingNumber } from "@/components/RollingNumber";
 import type { ChartData } from "@/lib/chart";
 import { getSpxDay, lastSpxDay, refreshCondorBot } from "@/lib/client-data";
-import type { BotRules, BotState, BotTrade } from "@/lib/condor-bot";
+import { riskNow, sizeLabel, type BotRules, type BotState, type BotTrade } from "@/lib/condor-bot";
 import { condorValue, impliedVol, markCondor, nyClose, orderPhase, payoff, yearsLeft } from "@/lib/condor-live";
 import { fmtMonthDay, fmtWeekday, nyDate } from "@/lib/dates";
 import { signedUsd0, usd0 } from "@/lib/format";
@@ -42,6 +42,7 @@ export function OrderTicket({ bot, onUpdate, name }: { bot: BotState; onUpdate: 
   const status = orderPhase(bot, now);
   const levels = bot.rules.levels ?? [1];
   const size = levels[bot.level] ?? levels[0];
+  const risk = riskNow(bot);
 
   // While the order is working, check for the fill every 20 seconds.
   const working = status.phase === "working";
@@ -92,13 +93,15 @@ export function OrderTicket({ bot, onUpdate, name }: { bot: BotState; onUpdate: 
           <p className="num mt-1 text-sm text-text-2">
             {status.phase === "filled" ? (
               <>
-                Sold {status.trade.contracts}× {name} iron condor · level {status.trade.level + 1} · {strikesOf(status.trade)} · credit{" "}
+                Sold {status.trade.contracts}× {name} iron condor · {sizeLabel(status.trade)} · {strikesOf(status.trade)} · credit{" "}
                 <span className="font-semibold text-up">{usd0(status.trade.credit * 100 * status.trade.contracts)}</span> · expires{" "}
                 {fmtWeekday(status.trade.expiry)}
               </>
             ) : (
               <>
-                Sell {size}× {name} iron condor · level {bot.level + 1} of {levels.length} · expires next trading day
+                {risk
+                  ? `Sell a ${name} iron condor risking ${Math.round(risk * 100)}% of the account · expires next trading day`
+                  : `Sell ${size}× ${name} iron condor · level ${bot.level + 1} of ${levels.length} · expires next trading day`}
               </>
             )}
           </p>
@@ -135,6 +138,7 @@ function ladderWhy(from: number, to: number, won: boolean, levels: number[]): st
  */
 function OrderLog({ bot, status, name, now }: { bot: BotState; status: ReturnType<typeof orderPhase>; name: string; now: Date }) {
   const levels = bot.rules.levels ?? [1];
+  const risk = riskNow(bot);
   const steps: { label: string; lines: React.ReactNode[] }[] = [];
   if (status.phase === "filled") {
     const t = status.trade;
@@ -145,9 +149,11 @@ function OrderLog({ bot, status, name, now }: { bot: BotState; status: ReturnTyp
       lines: settled
         ? [
             `${fmtWeekday(settled.expiry)} condor ${strikesOf(settled)} × ${settled.contracts} settled at ${name}'s close ${settled.close?.toFixed(2)}`,
-            `${pnl >= 0 ? "Won" : "Lost"} ${signedMoney2(pnl)} → level ${settled.level + 1} → level ${t.level + 1} (${ladderWhy(settled.level, t.level, pnl >= 0, levels)})`,
+            t.riskPct
+              ? `${pnl >= 0 ? "Won" : "Lost"} ${signedMoney2(pnl)} → account ${money2(bot.history.find((h) => h.date === settled.expiry)?.equity ?? bot.equity)}`
+              : `${pnl >= 0 ? "Won" : "Lost"} ${signedMoney2(pnl)} → level ${settled.level + 1} → level ${t.level + 1} (${ladderWhy(settled.level, t.level, pnl >= 0, levels)})`,
           ]
-        : [`No condor expired today · trading level ${t.level + 1} of ${levels.length}`],
+        : [t.riskPct ? "No condor expired today" : `No condor expired today · trading level ${t.level + 1} of ${levels.length}`],
     });
     const perContract = t.credit * 100;
     steps.push({
@@ -162,7 +168,9 @@ function OrderLog({ bot, status, name, now }: { bot: BotState; status: ReturnTyp
       label: "Send order",
       lines: [
         `Sell ${t.contracts}× ${name} iron condor at the quoted mid less ${money2(bot.rules.slippage)} a spread`,
-        `Level ${t.level + 1} of ${levels.length} → ${levels[t.level]} contract${levels[t.level] === 1 ? "" : "s"}${t.capped ? ` (capped at ${t.contracts} by the cash on hand)` : ""}`,
+        t.riskPct
+          ? `Risk ${Math.round(t.riskPct * 100)}% of the account → ${t.contracts} contract${t.contracts === 1 ? "" : "s"} (a full loss costs ${money2((Math.max(t.putShort - t.putLong, t.callLong - t.callShort) - t.credit) * 100 * t.contracts)})`
+          : `Level ${t.level + 1} of ${levels.length} → ${levels[t.level]} contract${levels[t.level] === 1 ? "" : "s"}${t.capped ? ` (capped at ${t.contracts} by the cash on hand)` : ""}`,
       ],
     });
     steps.push({
@@ -181,11 +189,17 @@ function OrderLog({ bot, status, name, now }: { bot: BotState; status: ReturnTyp
       lines: [
         expiring
           ? `Settle the ${fmtWeekday(expiring.expiry)} condor ${strikesOf(expiring)} × ${expiring.contracts} at ${name}'s 1:00pm PT close`
-          : `No condor expiring today · trading level ${bot.level + 1} of ${levels.length}`,
-        expiring
-          ? `Then open the next one: a win → level 1 (${levels[0]}×), a loss → level ${afterLoss + 1} (${levels[afterLoss]}×)`
-          : `Then open the next one at level ${bot.level + 1} (${levels[bot.level] ?? levels[0]}×)`,
-        `Short strikes placed for about ${money2(bot.rules.width * 50)} credit per contract on ${bot.rules.width}-point wings`,
+          : risk
+            ? "No condor expiring today"
+            : `No condor expiring today · trading level ${bot.level + 1} of ${levels.length}`,
+        risk
+          ? `Then open the next one, sized so a full loss costs ${Math.round(risk * 100)}% of the account after the close`
+          : expiring
+            ? `Then open the next one: a win → level 1 (${levels[0]}×), a loss → level ${afterLoss + 1} (${levels[afterLoss]}×)`
+            : `Then open the next one at level ${bot.level + 1} (${levels[bot.level] ?? levels[0]}×)`,
+        bot.rules.evenMoney
+          ? `Short strikes placed for about ${money2(bot.rules.width * 50)} credit per contract on ${bot.rules.width}-point wings`
+          : `Short strikes at about ${Math.round(bot.rules.shortDelta * 100)} delta on ${bot.rules.width}-point wings`,
       ],
     });
   }
@@ -247,7 +261,7 @@ export function PositionCard({
     <div className="mb-4 rounded-xl border border-border p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-sm font-semibold">
-          {name} Iron Condor · {trade.contracts}× · L{trade.level + 1}
+          {name} Iron Condor · {trade.contracts}× · {trade.riskPct ? sizeLabel(trade) : `L${trade.level + 1}`}
         </div>
         <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${expiresToday ? "bg-warn/15 text-warn" : "bg-up/15 text-up"}`}>
           {close.getTime() <= now.getTime()
@@ -489,7 +503,7 @@ export function TradeHistory({ id, bot, positions, name }: { id: string; bot: Bo
                   {fmtMonthDay(t.date)} → {fmtMonthDay(t.expiry)}
                 </span>
                 <span className={`num shrink-0 text-xs ${(t.level ?? 0) > 0 ? "font-semibold text-warn" : "text-text-2"}`}>
-                  L{(t.level ?? 0) + 1} · {t.contracts}×
+                  {t.riskPct ? `${Math.round(t.riskPct * 100)}%` : `L${(t.level ?? 0) + 1}`} · {t.contracts}×
                 </span>
                 <span className={`num w-20 shrink-0 text-right font-medium ${open ? "text-text-2" : (t.pnl ?? 0) >= 0 ? "text-up" : "text-down"}`}>
                   {open ? "Open" : signedUsd0(t.pnl ?? 0)}

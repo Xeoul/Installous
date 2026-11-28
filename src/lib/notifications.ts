@@ -1,6 +1,6 @@
 // Phone notifications for the condor bot: what to say, as
 // pure functions of their saved states (scripts/notify.ts sends them).
-import { botName, type BotState, type BotTrade } from "./condor-bot";
+import { botName, sizeLabel, type BotState, type BotTrade } from "./condor-bot";
 import { fmtWeekday } from "./dates";
 import { maxLossPerShare } from "./options";
 
@@ -53,12 +53,12 @@ export function condorNotifications(prev: BotState | null, state: BotState): Not
     const credit = open.credit * 100 * open.contracts;
     const maxLoss = maxLossPerShare(open) * 100 * open.contracts;
     out.push({
-      title: `Iron condor opened · level ${open.level + 1} of ${levels.length}, ${open.contracts}×`,
-      short: `Level ${open.level + 1} - ${open.contracts} contract${open.contracts === 1 ? "" : "s"}`,
+      title: open.riskPct ? `Iron condor opened · ${sizeLabel(open)}, ${open.contracts}×` : `Iron condor opened · level ${open.level + 1} of ${levels.length}, ${open.contracts}×`,
+      short: `${open.riskPct ? sizeLabel(open) : `Level ${open.level + 1}`} - ${open.contracts} contract${open.contracts === 1 ? "" : "s"}`,
       message:
         `${name} ${strikes(open)} for ${usd(credit)} credit (${name} ${open.spot.toFixed(2)}).\n` +
         `Expires ${fmtWeekday(open.expiry)} at the close · win up to ${usd(credit)}, lose up to ${usd(maxLoss)}.` +
-        (open.capped ? `\nCapped at ${open.contracts}× by the cash on hand (level ${open.level + 1} wants ${levels[open.level]}×).` : ""),
+        (open.capped ? `\nCapped at ${open.contracts}× by the cash on hand.` : ""),
       tags: ["chart_with_upwards_trend"],
       path: "/options/",
     });

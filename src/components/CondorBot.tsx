@@ -6,7 +6,7 @@ import { Change } from "@/components/Change";
 import { FundChart } from "@/components/FundChart";
 import { RollingNumber } from "@/components/RollingNumber";
 import { getCondorBot, getSpxDay } from "@/lib/client-data";
-import { botName, botQuoteTicker, type BotState, type BotTrade } from "@/lib/condor-bot";
+import { botName, botQuoteTicker, peakEquity, riskNow, type BotState, type BotTrade } from "@/lib/condor-bot";
 import { fmtWeekday as fmtDate, nyDate } from "@/lib/dates";
 import { signedUsd0 as signed, usd0 } from "@/lib/format";
 import { MarketHours } from "@/lib/live/pricing";
@@ -38,6 +38,10 @@ export function CondorBot() {
   // Size after the open condor settles: back to level 1 on a win, up a level on a loss (past the top, start over).
   const openLevel = bot?.open?.level ?? level;
   const afterLoss = openLevel + 1 >= levels.length ? levels[0] : levels[openLevel + 1];
+  // Risk-sized bots: the share of the account the next condor risks, and how far it sits below its high.
+  const risk = bot ? riskNow(bot) : null;
+  const below = bot ? 1 - bot.equity / peakEquity(bot) : 0;
+  const pct = (x: number) => `${Math.round(x * 100)}%`;
   const wins = bot?.trades.filter((t) => (t.pnl ?? 0) >= 0).length ?? 0;
   // Open condors are marked live from the index's streamed price, like positions in a brokerage app.
   const positions = [bot?.settling, bot?.open].filter((t): t is BotTrade => !!t);
@@ -56,7 +60,7 @@ export function CondorBot() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-text-2">
           {positions.length > 0 && !bot?.bust && <span className="live-dot" aria-hidden />}
-          Live {name} martingale bot
+          Live {name} {risk ? "condor" : "martingale"} bot
         </h2>
         {bot && (
           <span className="text-xs text-muted">
@@ -113,6 +117,26 @@ export function CondorBot() {
                 )
               }
             />
+            {risk && r ? (
+              <Tile
+                label="Risk per trade"
+                value={bot.bust ? "Bust" : pct(risk)}
+                sub={
+                  bot.bust ? (
+                    <span className="text-down">Stopped {fmtDate(bot.bust)}</span>
+                  ) : risk < r.riskPct! ? (
+                    <span className="text-warn">
+                      Brake on: {pct(below)} below the high · back to {pct(r.riskPct!)} once it recovers to{" "}
+                      {usd0(peakEquity(bot) * (1 - r.brakeDrawdown!))}
+                    </span>
+                  ) : (
+                    <span className="text-text-2">
+                      A full loss costs {pct(risk)} of the account · {r.brakeDrawdown ? `drops to ${pct(r.brakeRiskPct!)} if it falls ${pct(r.brakeDrawdown)} from its high` : "no ladder"}
+                    </span>
+                  )
+                }
+              />
+            ) : (
             <Tile
               label="Level"
               value={bot.bust ? "Bust" : `${(bot.open ? openLevel : level) + 1} of ${levels.length}`}
@@ -129,6 +153,7 @@ export function CondorBot() {
                 )
               }
             />
+            )}
             <Tile
               label="Condors settled"
               value={String(bot.trades.length)}
@@ -176,8 +201,11 @@ export function CondorBot() {
             <summary className="cursor-pointer font-medium text-text-2">How the bot trades</summary>
             <p className="mt-2">
               Right after each market day&apos;s close (1:00pm PT) it settles the condor expiring today as a win or a loss, sets the next
-              size from the ladder ({levels.join(", ")} contracts: a loss moves up a level, any win goes back to level 1, and a loss on
-              level {levels.length} starts over), then sells a {name} iron condor expiring the next trading day with ${r.width} wings
+              size{" "}
+              {r.riskPct
+                ? `so a full loss would cost ${pct(r.riskPct)} of the account (${pct(r.brakeRiskPct ?? r.riskPct)} while the account is ${pct(r.brakeDrawdown ?? 0)} or more below its high), so wins compound into bigger trades,`
+                : `from the ladder (${levels.join(", ")} contracts: a loss moves up a level, any win goes back to level 1, and a loss on level ${levels.length} starts over),`}{" "}
+              then sells a {name} iron condor expiring the next trading day with ${r.width} wings
               {r.evenMoney
                 ? `, short strikes placed so it collects about ${(r.width * 50).toFixed(0)}`
                 : `, short strikes at about ${Math.round(r.shortDelta * 100)} delta, far enough out that it wins most days`}

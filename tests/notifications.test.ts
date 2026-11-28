@@ -18,9 +18,16 @@ const condor = (o: Partial<BotTrade> = {}): BotTrade => ({
   capped: false,
   ...o,
 });
-const base = (): BotState => newBotState(new Date("2026-10-13T13:00:00Z"));
+const base = (): BotState => newBotState(new Date("2026-10-13T13:00:00Z"), { ...BOT_RULES, levels: [1, 3, 6], riskPct: undefined });
 
 describe("condor notifications", () => {
+  it("names the risk instead of a level for a risk-sized condor", () => {
+    const prev = newBotState(new Date("2026-10-13T13:00:00Z"));
+    const [n] = condorNotifications(prev, { ...prev, open: condor({ contracts: 4, riskPct: 0.2 }) });
+    expect(n.title).toBe("Iron condor opened · 20% risk, 4×");
+    expect(n.short).toBe("20% risk - 4 contracts");
+  });
+
   it("announces a new condor once, with its level, size, credit and risk", () => {
     const prev = base();
     const state = { ...prev, open: condor({ level: 1, contracts: 2 }) };
